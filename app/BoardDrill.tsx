@@ -102,7 +102,10 @@ function EvalBar({
 }) {
   const frac = 1 / (1 + Math.exp(-whiteCp / 350));
   const mate = Math.abs(whiteCp) >= 9000;
-  const label = mate ? "M" : (Math.abs(whiteCp) / 100).toFixed(1);
+  const pawns = Math.abs(whiteCp) / 100;
+  // Keep the label short enough to fit inside the bar: drop the decimal once we
+  // hit double digits ("24" not "24.5"), and show "M" for mate-range scores.
+  const label = mate ? "M" : pawns >= 9.95 ? Math.round(pawns).toString() : pawns.toFixed(1);
   const whiteLeads = whiteCp >= 0;
   const numAtBottom = whiteLeads === whiteAtBottom;
   return (
@@ -127,7 +130,9 @@ export default function BoardDrill({
   cleanDone,
   practiceStatus,
   queueStats,
+  selIdx,
   onPractice,
+  onPrev,
   onNext,
 }: {
   blunder: BlunderExample | undefined;
@@ -135,7 +140,9 @@ export default function BoardDrill({
   cleanDone: boolean;
   practiceStatus?: PracticeStatus;
   queueStats: { total: number; fixed: number; missed: number; later: number; done: number };
+  selIdx: number;
   onPractice: (status: PracticeStatus) => void;
+  onPrev: () => void;
   onNext: () => void;
 }) {
   const engineRef = useRef<Engine | null>(null);
@@ -151,10 +158,12 @@ export default function BoardDrill({
       const w = wrapRef.current?.clientWidth;
       const h = wrapRef.current?.clientHeight;
       if (!w) return;
-      // Card padding (44) + eval bar and its gap (26) sit beside/around the board.
-      const maxByWidth = w - 70;
-      // Reserve room for the card head + feedback/actions/why-panel below the board.
-      const maxByHeight = h ? Math.max(240, h - 256) : Math.max(240, window.innerHeight - 360);
+      // Card padding (44) + eval bar (26) and its gap (8) sit beside/around the board.
+      const maxByWidth = w - 78;
+      // Reserve room for the card head + the first rows of replay controls.
+      // Anything taller scrolls inside .board-scroll, so this can stay modest
+      // and keep the board itself large.
+      const maxByHeight = h ? Math.max(240, h - 268) : Math.max(240, window.innerHeight - 360);
       setBoardW(Math.max(240, Math.min(maxByWidth, maxByHeight, 1040)));
     };
     measure();
@@ -290,6 +299,28 @@ export default function BoardDrill({
       p ? { ...p, status: "thinking", fen: resultFen, feedback: `Analyzing ${move!.san}…`, highlight: {}, arrows: [] } : p
     );
 
+    // If they played the engine's stored best move, say so directly. The drill
+    // re-evaluates at PUZZLE_DEPTH, which differs from the depth bestCp was
+    // analyzed at, so a depth-noise "loss" would otherwise flag the best move
+    // as "there's cleaner" — the same move "Show best move" reveals.
+    const playedUci = `${source}${target}${move.promotion ?? ""}`;
+    if (blunder.bestMoveUci && playedUci === blunder.bestMoveUci) {
+      onPractice("solved");
+      setBs((p) =>
+        p
+          ? {
+              ...p,
+              status: "solved",
+              feedback: `${move!.san} — that's the move. ${pawnsLabel(blunder.bestCp)}.`,
+              highlight: { [source]: GREEN_FROM, [target]: GREEN_TO },
+              arrows: [[source, target, ARROW_GREEN]],
+              evalWhiteCp: toWhite(blunder.fen, blunder.bestCp),
+            }
+          : p
+      );
+      return true;
+    }
+
     (async () => {
       const engine = await getEngine();
       const { cp } = await engine.evaluate(resultFen, PUZZLE_DEPTH);
@@ -389,6 +420,7 @@ export default function BoardDrill({
         />
       </div>
 
+      <div className="board-scroll">
       {!blunder && (
         <p className="review-empty">
           {analyzing
@@ -404,7 +436,6 @@ export default function BoardDrill({
           <p className="review-info">
             Game {blunder.gameIndex + 1} · move {blunder.moveNumber} · {MISTAKE_LABELS[blunder.mistakeKind]} ·{" "}
             {PHASE_LABELS[blunder.phase]} · cost {(blunder.swingCp / 100).toFixed(1)}
-            {practiceStatus ? ` · ${practiceStatus === "solved" ? "fixed" : practiceStatus}` : ""}
           </p>
           <p
             className={
@@ -418,31 +449,70 @@ export default function BoardDrill({
             {bs.status === "thinking" && <span className="spinner" />}
             {bs.feedback}
           </p>
-          <div className="drill-actions">
-            <button className="secondary" onClick={resetBoard}>
-              Find better move
+          <div className="drill-controls">
+            <button
+              className="secondary reset"
+              onClick={resetBoard}
+              disabled={bs.status === "ready"}
+              title="Put the pieces back and try the position again"
+            >
+              ↺ Reset position
             </button>
-            <button className="secondary ok" onClick={() => onPractice("solved")}>
-              I got it right
-            </button>
-            <button className="secondary bad" onClick={() => onPractice("missed")}>
-              Missed it
-            </button>
-            <button className="secondary" onClick={() => onPractice("later")}>
-              Review later
-            </button>
-            {bs.status !== "shown" && (
-              <button className="link" onClick={showPlayed}>
-                Show what you played
+            {blunder.bestMoveUci && (
+              <button
+                className="secondary"
+                onClick={showBest}
+                disabled={bs.status === "best"}
+              >
+                💡 Best move
               </button>
             )}
-            {bs.status !== "best" && blunder.bestMoveUci && (
-              <button className="link" onClick={showBest}>
-                Show best move
+            <button
+              className="secondary"
+              onClick={showPlayed}
+              disabled={bs.status === "shown"}
+            >
+              👁 What happened
+            </button>
+          </div>
+
+          <div className="drill-tag">
+            <span className="drill-tag-label">Mark this one</span>
+            <div className="drill-chips">
+              <button
+                className={`drill-chip ok${practiceStatus === "solved" ? " active" : ""}`}
+                onClick={() => onPractice("solved")}
+              >
+                Fixed
               </button>
-            )}
-            <button className="link" onClick={onNext} disabled={queueStats.total <= 1}>
-              Next position
+              <button
+                className={`drill-chip bad${practiceStatus === "missed" ? " active" : ""}`}
+                onClick={() => onPractice("missed")}
+              >
+                Missed
+              </button>
+              <button
+                className={`drill-chip${practiceStatus === "later" ? " active" : ""}`}
+                onClick={() => onPractice("later")}
+              >
+                Later
+              </button>
+            </div>
+          </div>
+
+          <div className="drill-nav">
+            <button className="nav-btn" onClick={onPrev} disabled={selIdx <= 0}>
+              ← Prev
+            </button>
+            <span className="drill-counter">
+              {selIdx + 1} <span className="drill-counter-sep">/</span> {queueStats.total}
+            </span>
+            <button
+              className="nav-btn"
+              onClick={onNext}
+              disabled={selIdx >= queueStats.total - 1}
+            >
+              Next →
             </button>
           </div>
           <details className="why-panel">
@@ -470,6 +540,7 @@ export default function BoardDrill({
           </details>
         </>
       )}
+      </div>
     </div>
   );
 }

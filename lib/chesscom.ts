@@ -16,6 +16,7 @@ interface ChessComGame {
   time_class?: string;
   time_control?: string;
   end_time?: number;
+  url?: string;
   white?: { username?: string; rating?: number };
   black?: { username?: string; rating?: number };
 }
@@ -75,6 +76,7 @@ export async function fetchGames(
         playerRating: playerSide?.rating ?? null,
         playerIsWhite: isWhite,
         endTime: g.end_time ?? 0,
+        url: g.url ?? null,
       });
       onProgress?.(collected.length);
     }

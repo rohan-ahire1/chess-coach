@@ -17,9 +17,32 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Coachmate — train your chess, play the bot",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  title: {
+    default: "Coachmate - train your chess, play the bot",
+    template: "%s | Coachmate",
+  },
   description:
     "Coachmate finds your recurring chess mistakes from real games, then lets you practice and play a tunable bot.",
+  applicationName: "Coachmate",
+  openGraph: {
+    title: "Coachmate - find and fix your chess leaks",
+    description:
+      "Analyze recent Chess.com games, drill recurring mistakes on the board, and play a tunable bot.",
+    siteName: "Coachmate",
+    type: "website",
+    images: [{ url: "/og.svg", width: 1200, height: 630, alt: "Coachmate chess coach" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Coachmate - find and fix your chess leaks",
+    description:
+      "Analyze recent Chess.com games, drill recurring mistakes on the board, and play a tunable bot.",
+    images: ["/og.svg"],
+  },
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export const viewport: Viewport = {
