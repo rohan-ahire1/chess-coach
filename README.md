@@ -1,29 +1,33 @@
-# Chess Weakness Coach
+# Coachmate
 
 Type a Chess.com username, get a plain-English coaching report on your recurring
-mistakes. Analysis runs in your browser with Stockfish (WASM); the only server
-call sends an aggregate summary to an LLM for the coaching text. Free, mobile-first.
+mistakes, then drill the positions on a board or play a tunable bot. Analysis
+runs in your browser with Stockfish (WASM); the only server call sends an
+aggregate summary to an LLM for the coaching text. Free, mobile-first.
 
 ## Stack
 
 - **Next.js (App Router)** on Vercel
-- **Stockfish** single-threaded build vendored at `public/stockfish.js` — runs in
-  a Web Worker, no `SharedArrayBuffer` / COOP-COEP headers needed (mobile-safe)
+- **Stockfish** single-threaded build vendored at `public/stockfish.js`; it runs
+  in a Web Worker, with no `SharedArrayBuffer` or COOP/COEP headers required
 - **chess.js** for PGN replay, phase detection, and the hanging-piece rule
-- **OpenRouter** for coaching (one server route, key never hits the browser)
+- **OpenRouter** for coaching through `app/api/coach/route.ts`; the key never
+  reaches the browser
 
-## How it works
+## How It Works
 
-1. **Fetch** — walks the player's Chess.com monthly archives newest-first,
-   filters by time control, collects up to 15 games. (`lib/chesscom.ts`)
-2. **Analyze** — Stockfish evaluates each position at a low fixed depth; a move
-   is a blunder if the eval drops ≥250cp from the mover's perspective.
-   (`lib/engine.ts`, `lib/analysis.ts`)
-3. **Classify** — blunders bucket by game phase (opening ≤ move 12 / endgame by
-   material / else middlegame). Hung pieces are flagged separately by a
-   ground-truth next-capture rule.
-4. **Coach** — aggregate counts + the single worst hang per phase + the player's
-   real rating go to the LLM. Full games are never sent. (`app/api/coach/route.ts`)
+1. **Fetch** - walks the player's Chess.com monthly archives newest-first,
+   filters by time control, and collects up to 15 games. (`lib/chesscom.ts`)
+2. **Analyze** - Stockfish evaluates each candidate position at a low fixed
+   depth; a move is a blunder if a same-depth best-move comparison shows a loss
+   of at least 250cp from the mover's perspective. (`lib/engine.ts`,
+   `lib/analysis.ts`)
+3. **Classify** - blunders bucket by phase and concrete mistake type; hanging
+   pieces are also flagged by a depth-independent next-capture rule.
+4. **Pattern-match** - `lib/patterns.ts` finds recurring context patterns such
+   as mistake type by phase, material balance, or castling state.
+5. **Coach** - aggregate counts, representative examples, and recurring
+   patterns go to the LLM. Full games are never sent.
 
 ## Setup
 
@@ -33,52 +37,62 @@ cp .env.example .env.local   # add your OPENROUTER_API_KEY
 npm run dev
 ```
 
-Open http://localhost:3000. Without an API key the analysis + chart still work;
-only the coaching paragraph is unavailable (it degrades gracefully).
+Open http://localhost:3000. Without an API key the analysis, evidence list,
+board drills, and play-vs-bot mode still work; only the coaching paragraph is
+unavailable.
 
-### Deploy (Vercel)
+## Deploy
 
-Push the repo, import to Vercel, set `OPENROUTER_API_KEY` (and optionally
-`COACH_MODEL`, default `deepseek/deepseek-v4-flash`) as environment variables.
+Push the repo, import to Vercel, and set:
 
-## ⚠️ Calibration gate (do this before trusting results)
+- `OPENROUTER_API_KEY` - required for coaching text
+- `COACH_MODEL` - optional, defaults to `deepseek/deepseek-v4-flash`
+- `NEXT_PUBLIC_SITE_URL` - optional, used for absolute social metadata URLs
 
-The analysis **depth** (`DEFAULT_DEPTH` in `lib/analysis.ts`, currently `10`) is
-the single highest-risk constant. It has only been verified to build and serve —
-**not** measured on a real phone. Before relying on output:
+## Calibration
 
-1. Run a real analysis on a physical mid-range phone.
-2. Measure per-game and total wall-clock time. Target: under ~3–4 minutes for 15
-   games. If too slow, lower `DEFAULT_DEPTH` (try 8) or `MAX_PLIES`.
-3. Spot-check that flagged ≥250cp moves are genuine mistakes, not low-depth noise.
+Current launch constants:
 
-The vendored `public/stockfish.js` is the classic v10 single-threaded UCI build.
-Its in-browser behavior follows the standard Worker UCI protocol that
-`lib/engine.ts` speaks, but the actual engine run + phone timing is the one thing
-that needs verification in a real browser.
+- `DEFAULT_DEPTH=8`
+- `BLUNDER_THRESHOLD_CP=250`
+- `MAX_PLIES=80`
+- `OPENING_LAST_MOVE=12`
 
-## Tunable constants (`lib/analysis.ts`)
+Code calibration status: depth was lowered from 10 to 8 for launch timing, and
+the production build is the local verification gate. Physical-device calibration
+still must be completed before public launch: run 15 real games on a mid-range
+phone and a desktop, record per-game and total wall-clock time, and spot-check
+10-15 flagged moves of at least 250cp against the original games.
+
+Target: 15 games in about 3-4 minutes on a mid-range phone with no common
+false-positive blunders in the spot check. Record the measured phone and desktop
+numbers here after that run:
+
+| Device | Games | Depth | Total Time | Avg/Game | Spot Check |
+|---|---:|---:|---:|---:|---|
+| Mid-range phone | 15 | 8 | pending | pending | pending |
+| Desktop browser | 15 | 8 | pending | pending | pending |
+
+## Tunable Constants (`lib/analysis.ts`)
 
 | Constant | Default | Meaning |
-|---|---|---|
-| `DEFAULT_DEPTH` | 10 | Stockfish search depth |
+|---|---:|---|
+| `DEFAULT_DEPTH` | 8 | Stockfish search depth |
 | `BLUNDER_THRESHOLD_CP` | 250 | min eval drop to count as a blunder |
 | `MAX_PLIES` | 80 | cap on plies analyzed per game |
-| `ENDGAME_MATERIAL` | 13 | non-pawn material ≤ this ⇒ endgame |
-| `OPENING_LAST_MOVE` | 12 | full-moves ≤ this ⇒ opening |
+| `OPENING_LAST_MOVE` | 12 | full-moves before this value are opening |
 
 ## Scope
 
 v1 is deliberately small: no accounts, no database, no payments, Chess.com only.
-See `plans/chess-weakness-coach-v1.plan.md` for the full spec and the deferred
-v2 backlog.
+See `plans/launch.plan.md` for the launch checklist.
 
-## Known limitations (accepted for v1)
+## Known Limitations
 
 - The hanging-piece rule is a simple next-capture heuristic; intended sacrifices
   and zwischenzug can produce false positives.
-- A full run pins the phone's CPU for 1–4 minutes. Partial results are saved per
-  game (`sessionStorage`) so an interrupted run still shows a labeled report.
-- Phase blunder counts are eval-swing based; concrete examples shown to the user
-  come only from the depth-independent hanging rule, so a noisy eval can never
-  surface as a fake "worst blunder."
+- A full run can pin the phone's CPU for several minutes. Partial results are
+  saved per game in `sessionStorage`, so an interrupted run still shows a
+  labeled report.
+- The `/api/coach` route has a small in-memory edge rate limit and request size
+  cap. For sustained traffic across many edge isolates, use a shared store.

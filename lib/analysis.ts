@@ -1,17 +1,23 @@
 import { Chess } from "chess.js";
 import type { Engine } from "./engine";
-import type { BlunderExample, FetchedGame, MistakeKind, Phase, Profile } from "./types";
+import type {
+  BlunderExample,
+  CastleSide,
+  FetchedGame,
+  MaterialBalance,
+  MistakeKind,
+  Phase,
+  Profile,
+} from "./types";
 
-// ---- Tunable constants (calibrate DEPTH on a real phone before trusting) ----
+// ---- Tunable constants (calibrate DEPTH on a real phone before launch) ----
 /** Fixed search depth. Low by design: we catch blunders, not play correspondence. */
-export const DEFAULT_DEPTH = 10;
+export const DEFAULT_DEPTH = 8;
 /** A move is a blunder if eval drops by at least this much (mover's perspective). */
 export const BLUNDER_THRESHOLD_CP = 250;
 /** Cap plies analyzed per game so total runtime stays bounded on phones. */
 export const MAX_PLIES = 80;
-/** Endgame if combined non-pawn, non-king material (in pawns) is <= this. */
-export const ENDGAME_MATERIAL = 13;
-/** Opening covers full-moves up to and including this number. */
+/** Opening covers full-moves before this number. */
 export const OPENING_LAST_MOVE = 12;
 
 const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -31,6 +37,10 @@ interface PlyInfo {
   clockAfterSec: number | null;
   /** Approximate seconds spent on this move, if enough clock data exists. */
   timeSpentSec: number | null;
+  /** Castling state for the mover before this ply. */
+  castleSide: CastleSide;
+  /** Number of mover moves since castling before this ply. */
+  movesSinceCastle: number | null;
 }
 
 export interface GameResult {
@@ -53,17 +63,24 @@ function emptyMistakes(): Record<MistakeKind, number> {
   };
 }
 
-/** Combined non-pawn, non-king material (in pawns) from a FEN placement field. */
-function nonPawnMaterial(fen: string): number {
+function materialScore(fen: string): number {
   const placement = fen.split(" ")[0];
-  let total = 0;
+  let score = 0;
   for (const ch of placement) {
     const lower = ch.toLowerCase();
-    if (lower === "n" || lower === "b" || lower === "r" || lower === "q") {
-      total += PIECE_VALUE[lower];
-    }
+    const val = PIECE_VALUE[lower];
+    if (val == null) continue;
+    score += ch === lower ? -val : val;
   }
-  return total;
+  return score;
+}
+
+function materialBalanceOf(fen: string, playerColor: "w" | "b"): MaterialBalance {
+  const whiteMinusBlack = materialScore(fen);
+  const playerMaterial = playerColor === "w" ? whiteMinusBlack : -whiteMinusBlack;
+  if (playerMaterial >= 2) return "ahead";
+  if (playerMaterial <= -2) return "behind";
+  return "equal";
 }
 
 function fullMoveOf(fen: string): number {
@@ -71,10 +88,10 @@ function fullMoveOf(fen: string): number {
   return Number.isNaN(n) ? 1 : n;
 }
 
-function phaseOf(fenBefore: string, fenAfter: string): Phase {
-  if (fullMoveOf(fenBefore) <= OPENING_LAST_MOVE) return "opening";
-  if (nonPawnMaterial(fenAfter) <= ENDGAME_MATERIAL) return "endgame";
-  return "middlegame";
+function phaseByMoveNumber(moveNumber: number): Phase {
+  if (moveNumber < 12) return "opening";
+  if (moveNumber <= 40) return "middlegame";
+  return "endgame";
 }
 
 function clockToSeconds(raw: string): number | null {
@@ -117,9 +134,13 @@ function replay(pgn: string, timeControl: string): PlyInfo[] {
     w: tc?.initialSec ?? null,
     b: tc?.initialSec ?? null,
   };
+  const castleSideByColor: Record<"w" | "b", CastleSide> = { w: null, b: null };
+  const movesSinceCastleByColor: Record<"w" | "b", number | null> = { w: null, b: null };
   const plies: PlyInfo[] = [];
   for (const [idx, mv] of verbose.entries()) {
     const fenBefore = replayer.fen();
+    const castleSide = castleSideByColor[mv.color];
+    const movesSinceCastle = movesSinceCastleByColor[mv.color];
     try {
       replayer.move(mv.san);
     } catch {
@@ -143,7 +164,18 @@ function replay(pgn: string, timeControl: string): PlyInfo[] {
       piece: mv.piece,
       clockAfterSec,
       timeSpentSec,
+      castleSide,
+      movesSinceCastle,
     });
+    if (mv.san === "O-O" || (mv.piece === "k" && mv.from[0] === "e" && mv.to[0] === "g")) {
+      castleSideByColor[mv.color] = "kingside";
+      movesSinceCastleByColor[mv.color] = 0;
+    } else if (mv.san === "O-O-O" || (mv.piece === "k" && mv.from[0] === "e" && mv.to[0] === "c")) {
+      castleSideByColor[mv.color] = "queenside";
+      movesSinceCastleByColor[mv.color] = 0;
+    } else if (movesSinceCastleByColor[mv.color] != null) {
+      movesSinceCastleByColor[mv.color]!++;
+    }
   }
   return plies;
 }
@@ -302,7 +334,8 @@ export async function analyzeGame(
     const trueLoss = bestCp - playedCp;
     if (trueLoss < BLUNDER_THRESHOLD_CP) continue; // no move did meaningfully better
 
-    const phase = phaseOf(ply.fenBefore, ply.fenAfter);
+    const moveNumber = fullMoveOf(ply.fenBefore);
+    const phase = phaseByMoveNumber(moveNumber);
 
     // Did this blunder hang material to the opponent's immediate next capture?
     const oppPly = plies[i + 1];
@@ -336,7 +369,18 @@ export async function analyzeGame(
       timeSpentSec: ply.timeSpentSec,
       timeClass: game.timeClass,
       gameIndex,
-      moveNumber: fullMoveOf(ply.fenBefore),
+      moveNumber,
+      context: {
+        category: mistakeKind,
+        move_number: moveNumber,
+        game_phase: phase,
+        material_balance: materialBalanceOf(ply.fenBefore, playerColor),
+        eval_before: toPlayer(before.cp),
+        eval_after: playedCp,
+        moves_since_castle: ply.movesSinceCastle,
+        castle_side: ply.castleSide,
+        game_url: game.url,
+      },
     });
   }
 

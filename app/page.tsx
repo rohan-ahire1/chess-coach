@@ -5,9 +5,9 @@ import { fetchGames, NotEnoughGamesError, NotFoundError } from "@/lib/chesscom";
 import { DEMO_COACHING, DEMO_PROFILE } from "@/lib/demo";
 import { Engine } from "@/lib/engine";
 import { analyzeGame, DEFAULT_DEPTH, emptyProfile, mergeProfile } from "@/lib/analysis";
+import { buildPatternPayload } from "@/lib/patterns";
 import {
   MISTAKE_LABELS,
-  PHASE_LABELS,
   bestMoveSan,
   blunderId,
   buildDiagnosis,
@@ -28,92 +28,6 @@ async function getCoaching(profile: Profile): Promise<string> {
   if (!res.ok) throw new Error("coach-failed");
   const data = await res.json();
   return data.coaching as string;
-}
-
-const MISTAKE_COLORS: Record<MistakeKind, string> = {
-  hanging_piece: "#b4452f",
-  bad_trade: "#c98a2b",
-  time_pressure: "#7b5bb0",
-  missed_capture: "#2e9170",
-  king_safety: "#8f3d31",
-  endgame_conversion: "#1f6f55",
-  tactical_blind_spot: "#4e6f7a",
-};
-
-const PHASE_COLORS: Record<Phase, string> = {
-  opening: "#6f9a87",
-  middlegame: "#4e8069",
-  endgame: "#325d4c",
-};
-
-function Chart({
-  profile,
-  filter,
-  setFilter,
-}: {
-  profile: Profile;
-  filter: FilterKey;
-  setFilter: (f: FilterKey) => void;
-}) {
-  const phases: Phase[] = ["opening", "middlegame", "endgame"];
-  const kinds = Object.keys(MISTAKE_LABELS) as MistakeKind[];
-  const kindCounts = kinds.map((k) => profile.mistakesByKind[k]);
-  const phaseCounts = phases.map((p) => profile.blundersByPhase[p]);
-  const max = Math.max(1, ...kindCounts, ...phaseCounts);
-
-  const Row = ({
-    name,
-    val,
-    color,
-    fkey,
-  }: {
-    name: string;
-    val: number;
-    color: string;
-    fkey: FilterKey;
-  }) => (
-    <button
-      className={`bar-row${filter === fkey ? " active" : ""}`}
-      onClick={() => setFilter(fkey)}
-      disabled={val === 0}
-      title={val === 0 ? "" : `Show these ${val} in the board below`}
-    >
-      <div className="bar-name">{name}</div>
-      <div className="bar-track">
-        <div className="bar-fill" style={{ width: `${(val / max) * 100}%`, background: color }} />
-      </div>
-      <div className="bar-val">{val}</div>
-    </button>
-  );
-
-  return (
-    <div>
-      <p className="chart-caption">
-        Mistake types first, then where they happened. Tap a bar to review those positions.
-      </p>
-      {kinds
-        .filter((k) => profile.mistakesByKind[k] > 0)
-        .map((k) => (
-          <Row
-            key={k}
-            name={MISTAKE_LABELS[k]}
-            val={profile.mistakesByKind[k]}
-            color={MISTAKE_COLORS[k]}
-            fkey={k}
-          />
-        ))}
-      <div className="chart-divider" />
-      {phases.map((p) => (
-        <Row
-          key={p}
-          name={PHASE_LABELS[p]}
-          val={profile.blundersByPhase[p]}
-          color={PHASE_COLORS[p]}
-          fkey={p}
-        />
-      ))}
-    </div>
-  );
 }
 
 function PreviewPanel() {
@@ -182,6 +96,17 @@ function normalizeProfile(profile: Profile): Profile {
       clockAfterSec: b.clockAfterSec ?? null,
       timeSpentSec: b.timeSpentSec ?? null,
       timeClass: b.timeClass ?? "unknown",
+      context: b.context ?? {
+        category: fallbackKind,
+        move_number: b.moveNumber,
+        game_phase: b.phase,
+        material_balance: "equal",
+        eval_before: b.bestCp,
+        eval_after: b.bestCp - b.swingCp,
+        moves_since_castle: null,
+        castle_side: null,
+        game_url: null,
+      },
     };
   });
 
@@ -196,6 +121,17 @@ function normalizeProfile(profile: Profile): Profile {
       clockAfterSec: b.clockAfterSec ?? null,
       timeSpentSec: b.timeSpentSec ?? null,
       timeClass: b.timeClass ?? "unknown",
+      context: b.context ?? {
+        category: b.mistakeKind ?? (b.isHang ? "hanging_piece" : "tactical_blind_spot"),
+        move_number: b.moveNumber,
+        game_phase: b.phase,
+        material_balance: "equal",
+        eval_before: b.bestCp,
+        eval_after: b.bestCp - b.swingCp,
+        moves_since_castle: null,
+        castle_side: null,
+        game_url: null,
+      },
     })),
   };
 }
@@ -404,6 +340,10 @@ export default function Home() {
 
   const current = filtered[selIdx];
   const diagnosis = profile && !noBlunders ? buildDiagnosis(profile) : null;
+  const patternPayload = useMemo(
+    () => (profile && !noBlunders ? buildPatternPayload(profile) : null),
+    [noBlunders, profile]
+  );
   const currentId = current ? blunderId(current) : null;
   const currentPractice = currentId ? practice[currentId] : undefined;
   const queueStats = useMemo(() => {
@@ -427,15 +367,6 @@ export default function Home() {
     setPractice((p) => ({ ...p, [currentId]: status }));
   }
 
-  function goNextPosition() {
-    if (filtered.length === 0) return;
-    const nextUntouched = filtered.findIndex((b, i) => i > selIdx && !practice[blunderId(b)]);
-    if (nextUntouched !== -1) {
-      setSelIdx(nextUntouched);
-      return;
-    }
-    setSelIdx((i) => Math.min(filtered.length - 1, i + 1));
-  }
 
   function focusBlunder(blunderIdToFocus: string) {
     setFilterRaw("all");
@@ -573,8 +504,10 @@ export default function Home() {
               cleanDone={!!noBlunders}
               practiceStatus={currentPractice}
               queueStats={queueStats}
+              selIdx={selIdx}
               onPractice={markPractice}
-              onNext={goNextPosition}
+              onPrev={() => setSelIdx((i) => Math.max(0, i - 1))}
+              onNext={() => setSelIdx((i) => Math.min(filtered.length - 1, i + 1))}
             />
           </div>
 
@@ -603,6 +536,25 @@ export default function Home() {
                         <strong>
                           {b.move} → {bestMoveSan(b) ?? "stronger move"}
                         </strong>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {patternPayload && patternPayload.top_patterns.length > 0 && (
+                  <div className="pattern-box">
+                    <span>Recurring patterns</span>
+                    {patternPayload.top_patterns.map((p) => (
+                      <button
+                        key={`${p.description}-${p.count}`}
+                        onClick={() => {
+                          const url = p.examples[0]?.game_url;
+                          if (url) window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <strong>{p.description}</strong>
+                        <small>
+                          {p.count} times, avg loss {p.avg_eval_loss.toFixed(1)} pawns
+                        </small>
                       </button>
                     ))}
                   </div>
@@ -648,18 +600,6 @@ export default function Home() {
                 practice={practice}
               />
             </div>
-          )}
-
-          {hasResults && !noBlunders && (
-            <details className="card details area-details">
-              <summary>
-                <span>Weakness breakdown</span>
-                <span className="details-hint">{profile.totalBlunders} blunders · tap to expand</span>
-              </summary>
-              <div className="details-body">
-                <Chart profile={profile} filter={filter} setFilter={setFilter} />
-              </div>
-            </details>
           )}
           </div>
         </div>

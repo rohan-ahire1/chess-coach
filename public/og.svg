@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f6f3ec"/>
+  <rect x="70" y="70" width="1060" height="490" rx="36" fill="#fffdf9" stroke="#e7e0d2" stroke-width="3"/>
+  <rect x="120" y="130" width="92" height="92" rx="22" fill="#1f6f55"/>
+  <path fill="#fffdf9" d="M146 192c-2 5-3 8-3 11v5c0 3 2 5 5 5h47c3 0 5-2 5-5v-5c0-16-10-26-28-26h-2c-3 0-6-1-8-3l-10-14c-1-1-1-2 0-3h2c8 0 14 6 14 14 0 3 2 5 5 5s5-2 5-5c0-7-3-13-8-18v-4c0-4-3-7-7-7h-31c-4 0-7 3-7 7 0 1 1 3 2 4l5 8c-8 7-13 16-13 25 0 6 2 12 5 17l14-11z"/>
+  <text x="250" y="175" fill="#211f1a" font-family="Georgia, serif" font-size="74" font-weight="600">Coachmate</text>
+  <text x="250" y="232" fill="#7a7368" font-family="Arial, sans-serif" font-size="28">Find and fix your recurring chess leaks.</text>
+  <g transform="translate(120 290)">
+    <rect width="250" height="250" rx="12" fill="#e7e0d2"/>
+    <g>
+      <rect x="0" y="0" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="62.5" y="0" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="125" y="0" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="187.5" y="0" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="0" y="62.5" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="62.5" y="62.5" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="125" y="62.5" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="187.5" y="62.5" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="0" y="125" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="62.5" y="125" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="125" y="125" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="187.5" y="125" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="0" y="187.5" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="62.5" y="187.5" width="62.5" height="62.5" fill="#eef1ec"/>
+      <rect x="125" y="187.5" width="62.5" height="62.5" fill="#b7c4ba"/>
+      <rect x="187.5" y="187.5" width="62.5" height="62.5" fill="#eef1ec"/>
+    </g>
+    <path d="M65 185 L185 65" stroke="#1f6f55" stroke-width="10" stroke-linecap="round"/>
+    <path d="M185 65 l-30 4 l26 26 z" fill="#1f6f55"/>
+  </g>
+  <g fill="#211f1a" font-family="Arial, sans-serif">
+    <text x="430" y="345" font-size="34" font-weight="700">Engine-backed analysis</text>
+    <text x="430" y="395" font-size="34" font-weight="700">Board drills for every blunder</text>
+    <text x="430" y="445" font-size="34" font-weight="700">Play a tunable bot</text>
+  </g>
+</svg>

@@ -13,6 +13,40 @@ export type MistakeKind =
 
 export type PracticeStatus = "solved" | "missed" | "later";
 
+export type MaterialBalance = "ahead" | "equal" | "behind";
+export type CastleSide = "kingside" | "queenside" | null;
+
+export interface MistakeContext {
+  category: MistakeKind;
+  move_number: number;
+  game_phase: Phase;
+  material_balance: MaterialBalance;
+  eval_before: number;
+  eval_after: number;
+  moves_since_castle: number | null;
+  castle_side: CastleSide;
+  game_url: string | null;
+}
+
+export interface PatternExample {
+  game_url: string | null;
+  move: number;
+  note: string;
+}
+
+export interface RecurringPattern {
+  description: string;
+  count: number;
+  avg_eval_loss: number;
+  examples: PatternExample[];
+}
+
+export interface PatternPayload {
+  rating: number | null;
+  games_analyzed: number;
+  top_patterns: RecurringPattern[];
+}
+
 /** A single game pulled from Chess.com, reduced to what we need. */
 export interface FetchedGame {
   pgn: string;
@@ -24,6 +58,7 @@ export interface FetchedGame {
   /** Which side the analyzed player was. */
   playerIsWhite: boolean;
   endTime: number;
+  url: string | null;
 }
 
 export interface FetchResult {
@@ -63,6 +98,7 @@ export interface BlunderExample {
   timeClass: string;
   gameIndex: number;
   moveNumber: number;
+  context: MistakeContext;
 }
 
 /** Kept as an alias for the coaching payload (a blunder that hung material). */

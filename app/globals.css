@@ -547,6 +547,54 @@ input::placeholder {
   font-size: 0.9rem;
 }
 
+.pattern-box {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+
+.pattern-box > span {
+  color: var(--accent-deep);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pattern-box button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #b6d8c8;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  padding: 9px 11px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.pattern-box button:hover {
+  border-color: var(--accent);
+}
+
+.pattern-box strong,
+.pattern-box small {
+  display: block;
+}
+
+.pattern-box strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.pattern-box small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin-top: 2px;
+}
+
 .diagnosis .coaching {
   font-size: 0.96rem;
   color: var(--muted);
@@ -999,6 +1047,141 @@ button.secondary.bad {
   margin-top: 6px;
 }
 
+/* ---------- Drill replay controls (redesigned) ---------- */
+.board-scroll {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.drill-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.drill-controls .secondary {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.drill-controls .reset {
+  flex: 1 1 100%;
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.drill-controls .reset:disabled {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.drill-tag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.drill-tag-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.drill-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.drill-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.14s;
+}
+
+.drill-chip:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.drill-chip.ok.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+
+.drill-chip.bad.active {
+  background: #f6e3de;
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+.drill-chip.active {
+  background: var(--bg-tint);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.drill-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-btn {
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.14s;
+}
+
+.nav-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+
+.nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.drill-counter {
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.drill-counter-sep {
+  color: var(--muted);
+  margin: 0 2px;
+}
+
 /* ---------- Review panel ---------- */
 .review-body {
   display: flex;
@@ -1066,8 +1249,8 @@ button.secondary.bad {
 
 .eval-bar {
   position: relative;
-  width: 18px;
-  flex: 0 0 18px;
+  width: 26px;
+  flex: 0 0 26px;
   background: #3a4038;
   border-radius: 5px;
   overflow: hidden;
@@ -1086,10 +1269,10 @@ button.secondary.bad {
   left: 0;
   width: 100%;
   text-align: center;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .eval-num.on-white {

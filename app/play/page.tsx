@@ -110,7 +110,7 @@ export default function PlayPage() {
     let msg = "Game over.";
     if (g.isCheckmate()) {
       const loser = g.turn(); // side to move has been mated
-      msg = loser === playerColor ? "Checkmate — you lose." : "Checkmate — you win! 🎉";
+      msg = loser === playerColor ? "Checkmate - you lose." : "Checkmate - you win.";
     } else if (g.isStalemate()) msg = "Stalemate — it's a draw.";
     else if (g.isThreefoldRepetition()) msg = "Draw by repetition.";
     else if (g.isInsufficientMaterial()) msg = "Draw — insufficient material.";
@@ -119,8 +119,8 @@ export default function PlayPage() {
     return true;
   }
 
-  async function botMove() {
-    const eng = engineRef.current;
+  async function botMove(engineOverride?: Engine) {
+    const eng = engineOverride ?? engineRef.current;
     if (!eng || endedRef.current) return;
     setThinking(true);
     setStatus("Bot is thinking…");
@@ -190,7 +190,7 @@ export default function PlayPage() {
     setPhase("playing");
     if (color === "b") {
       setStatus("Bot is thinking…");
-      window.setTimeout(botMove, 300);
+      window.setTimeout(() => botMove(engineRef.current ?? undefined), 300);
     } else {
       setStatus("Your move.");
     }

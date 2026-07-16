@@ -3,7 +3,7 @@ import type { BlunderExample, Profile } from "./types";
 export const DEMO_COACHING =
   "This sample report is already analyzed. The main pattern is loose pieces: several positions lose material because the attacked piece is left unresolved. Use the drill first, then filter the evidence list by mistake type to see how the diagnosis was formed.";
 
-const blunders: BlunderExample[] = [
+const rawBlunders: Array<Omit<BlunderExample, "context">> = [
   {
     phase: "opening",
     move: "Bc4",
@@ -167,6 +167,21 @@ const blunders: BlunderExample[] = [
     moveNumber: 7,
   },
 ];
+
+const blunders: BlunderExample[] = rawBlunders.map((b) => ({
+  ...b,
+  context: {
+    category: b.mistakeKind,
+    move_number: b.moveNumber,
+    game_phase: b.phase,
+    material_balance: "equal",
+    eval_before: b.bestCp,
+    eval_after: b.bestCp - b.swingCp,
+    moves_since_castle: null,
+    castle_side: null,
+    game_url: null,
+  },
+}));
 
 export const DEMO_PROFILE: Profile = {
   rating: 1475,
