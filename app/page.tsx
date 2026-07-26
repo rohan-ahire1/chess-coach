@@ -6,15 +6,20 @@ import { DEMO_COACHING, DEMO_PROFILE } from "@/lib/demo";
 import { Engine } from "@/lib/engine";
 import { analyzeGame, DEFAULT_DEPTH, emptyProfile, mergeProfile } from "@/lib/analysis";
 import { buildPatternPayload } from "@/lib/patterns";
-import {
-  MISTAKE_LABELS,
-  bestMoveSan,
-  blunderId,
-  buildDiagnosis,
-} from "@/lib/insights";
+import { MISTAKE_LABELS, blunderId, buildDiagnosis } from "@/lib/insights";
 import type { MistakeKind, Phase, PracticeStatus, Profile, ProgressState, TimeControl } from "@/lib/types";
 import BoardDrill from "./BoardDrill";
 import Evidence, { type FilterKey } from "./Evidence";
+import {
+  AnalysisProgress,
+  DiagnosisRail,
+  DrillCoachPanel,
+  HeroArtwork,
+  PrivacyPill,
+  ReportStepper,
+  ReportSummary,
+  type ReportView,
+} from "./CoachViews";
 
 const STORE_KEY = "cwc:profile";
 const COMPLETE_KEY = "cwc:complete";
@@ -28,55 +33,6 @@ async function getCoaching(profile: Profile): Promise<string> {
   if (!res.ok) throw new Error("coach-failed");
   const data = await res.json();
   return data.coaching as string;
-}
-
-function PreviewPanel() {
-  const ranks = [
-    ["♜", "", "", "", "♚", "", "", "♜"],
-    ["♟", "♟", "", "", "", "♟", "♟", "♟"],
-    ["", "", "♞", "", "", "♛", "", ""],
-    ["", "", "", "♙", "♘", "", "", ""],
-    ["", "", "♗", "", "", "", "", ""],
-    ["", "", "", "", "", "♕", "", ""],
-    ["♙", "♙", "♙", "", "", "♙", "♙", "♙"],
-    ["♖", "", "", "", "♔", "", "", "♖"],
-  ];
-
-  return (
-    <div className="preview-card card" aria-label="Sample weakness report">
-      <p className="card-eyebrow">What you get</p>
-      <div className="preview-grid">
-        <div className="preview-board" aria-hidden="true">
-          {ranks.flatMap((rank, r) =>
-            rank.map((piece, f) => (
-              <span
-                key={`${r}-${f}`}
-                className={`preview-square ${(r + f) % 2 ? "dark" : "light"}${
-                  r === 3 && f === 4 ? " target" : ""
-                }`}
-              >
-                {piece}
-              </span>
-            ))
-          )}
-        </div>
-        <div className="preview-stack">
-          <div>
-            <span className="preview-k">Diagnosis</span>
-            <strong>Hanging pieces after normal development</strong>
-          </div>
-          <div>
-            <span className="preview-k">Evidence</span>
-            <strong>6 matching positions from 15 games</strong>
-          </div>
-          <div>
-            <span className="preview-k">Drill</span>
-            <strong>Name every loose piece before you move</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function normalizeProfile(profile: Profile): Profile {
@@ -154,6 +110,7 @@ export default function Home() {
   const [coaching, setCoaching] = useState<string | null>(null);
   const [coachError, setCoachError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportView, setReportView] = useState<ReportView>("summary");
 
   // Recover a partial profile left by an interrupted run (tab was killed).
   useEffect(() => {
@@ -185,6 +142,7 @@ export default function Home() {
     setCoaching(null);
     setCoachError(false);
     setProfile(null);
+    setReportView("summary");
     setPractice({});
     sessionStorage.removeItem(STORE_KEY);
     sessionStorage.setItem(COMPLETE_KEY, "false");
@@ -296,6 +254,7 @@ export default function Home() {
     setPractice({});
     setFilterRaw("all");
     setSelIdx(0);
+    setReportView("summary");
     setProfile(DEMO_PROFILE);
     setCoaching(DEMO_COACHING);
     setProgress({
@@ -308,6 +267,17 @@ export default function Home() {
     sessionStorage.setItem(STORE_KEY, JSON.stringify(DEMO_PROFILE));
     sessionStorage.setItem(COMPLETE_KEY, "true");
   }
+
+  // Useful for sharing and QA: /?demo=1 opens the same report as the demo button.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") {
+      loadDemo();
+      const requestedView = params.get("view");
+      if (requestedView === "evidence" || requestedView === "drill") setReportView(requestedView);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
   const hasResults = !!profile && progress.status === "done";
@@ -360,7 +330,10 @@ export default function Home() {
     };
   }, [filtered, practice]);
   const started =
-    !!profile || progress.status === "analyzing" || progress.status === "coaching";
+    !!profile ||
+    progress.status === "fetching" ||
+    progress.status === "analyzing" ||
+    progress.status === "coaching";
 
   function markPractice(status: PracticeStatus) {
     if (!currentId) return;
@@ -373,35 +346,43 @@ export default function Home() {
     const all = [...(profile?.blunders ?? [])].sort((a, b) => b.swingCp - a.swingCp);
     const idx = all.findIndex((b) => blunderId(b) === blunderIdToFocus);
     setSelIdx(idx === -1 ? 0 : idx);
+    setReportView("evidence");
   }
 
   return (
-    <main className="wrap">
-      {/* Landing — search first, board appears after you run */}
+    <main className={`wrap${!started ? " landing-wrap" : " report-wrap"}`}>
       {!started && (
-        <div className="landing">
-          <div className="landing-copy">
-            <h1 className="hero-title">
-              Find the leak in <em>your</em> chess.
-            </h1>
-            <p className="hero-sub">
-              Your recurring mistakes from recent Chess.com games — found by a real engine, put back
-              on the board to fix. Free, runs on your phone.
-            </p>
+        <div className="landing-page fade-in">
+          <section className="landing-hero">
+            <div className="landing-copy">
+              <PrivacyPill />
+              <h1 className="hero-title">
+                Understand your chess.
+                <br />
+                Improve faster.
+              </h1>
+              <p className="hero-sub">
+                We analyze your recent Chess.com games with Stockfish right in your browser—no
+                uploads, no cloud. Clear insights. Personalized coaching.
+              </p>
 
-            <div className="card">
-              <label htmlFor="u">Chess.com username</label>
-              <input
-                id="u"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. hikaru"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                disabled={running}
-              />
-              <div className="field-pair">
+              <div className="hero-form">
+                <div>
+                  <label htmlFor="u">Chess.com username</label>
+                  <input
+                    id="u"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. Hikaru"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={running}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && username.trim()) run();
+                    }}
+                  />
+                </div>
                 <div>
                   <label htmlFor="tc">Time control</label>
                   <select
@@ -416,7 +397,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="gc">Games</label>
+                  <label htmlFor="gc">Recent games</label>
                   <select
                     id="gc"
                     value={gameCount}
@@ -431,32 +412,118 @@ export default function Home() {
                   </select>
                 </div>
               </div>
-              <button className="primary" onClick={run} disabled={running || !username.trim()}>
-                {progress.status === "fetching" ? "Finding games…" : "Analyze my games"}
-              </button>
-              <button className="secondary demo" onClick={loadDemo} disabled={running}>
-                View demo report
-              </button>
+              <div className="hero-actions">
+                <button className="primary inline" onClick={run} disabled={running || !username.trim()}>
+                  ✦ Analyze my games
+                </button>
+                <button className="secondary" onClick={loadDemo} disabled={running}>
+                  ▤ View demo report
+                </button>
+              </div>
+              <p className="hero-privacy">▣ Private &amp; local: your games stay on your device.</p>
             </div>
-          </div>
 
-          <PreviewPanel />
+            <HeroArtwork />
+          </section>
 
           {error && (
-            <div className="card">
+            <div className="card landing-error">
               <p className="error">{error}</p>
             </div>
           )}
+
+          <section className="how-it-works">
+            <h2>Three simple steps to better chess</h2>
+            <div>
+              <article>
+                <span>⌕</span>
+                <small>1</small>
+                <h3>Diagnose</h3>
+                <p>We analyze your games with Stockfish and surface recurring mistakes.</p>
+              </article>
+              <b aria-hidden="true">›</b>
+              <article>
+                <span>▤</span>
+                <small>2</small>
+                <h3>Review evidence</h3>
+                <p>Explore annotated moments so you understand what went wrong and why.</p>
+              </article>
+              <b aria-hidden="true">›</b>
+              <article>
+                <span>◎</span>
+                <small>3</small>
+                <h3>Drill positions</h3>
+                <p>Practice the positions that matter most and turn insight into improvement.</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="privacy-band">
+            <div>
+              <span aria-hidden="true">▣</span>
+              <div>
+                <h2>Your data stays private</h2>
+                <p>All analysis runs locally in your browser using Stockfish.</p>
+              </div>
+            </div>
+            <div className="privacy-points">
+              <span>
+                <b>♙</b>
+                <strong>100% local</strong>
+                <small>Runs in your browser</small>
+              </span>
+              <span>
+                <b>◉</b>
+                <strong>No uploads</strong>
+                <small>Games never leave</small>
+              </span>
+              <span>
+                <b>♙</b>
+                <strong>No accounts</strong>
+                <small>No sign-up required</small>
+              </span>
+              <span>
+                <b>✓</b>
+                <strong>Open &amp; transparent</strong>
+                <small>Built on open technology</small>
+              </span>
+            </div>
+          </section>
+
+          <section className="report-features">
+            <h2>What’s inside your report</h2>
+            <div>
+              {[
+                ["◎", "Main weakness", "Your biggest patterns, ranked by impact."],
+                ["▥", "Annotated games", "Key moments with engine explanations."],
+                ["✓", "Recurring patterns", "Themes and tactical motifs you miss."],
+                ["✦", "Training positions", "Curated drills from your own games."],
+                ["↗", "Progress over time", "Track improvement across reports."],
+              ].map(([icon, title, copy]) => (
+                <article key={title}>
+                  <span>{icon}</span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{copy}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
       )}
 
-      {/* Results header */}
       {hasResults && (
-        <div className="results-top">
+        <div className="results-top report-context">
           <span className="results-for">
             <strong>{username}</strong> · {profile.gamesAnalyzed} games
             {profile.rating ? ` · ~${profile.rating}` : ""}
             {progress.partial && <span className="partial-badge">partial</span>}
+            {coachError && (
+              <button className="link coaching-retry" onClick={retryCoaching}>
+                Coach notes unavailable · retry
+              </button>
+            )}
           </span>
           <button
             className="link"
@@ -466,6 +533,7 @@ export default function Home() {
               setError(null);
               setPractice({});
               setFilter("all");
+              setReportView("summary");
               sessionStorage.removeItem(STORE_KEY);
               setProgress({ status: "idle", current: 0, total: 0, message: "", partial: false });
             }}
@@ -475,137 +543,124 @@ export default function Home() {
         </div>
       )}
 
-      {(progress.status === "analyzing" || progress.status === "coaching") && (
-        <div className="card">
-          <div className="warn">
-            Keep this screen on and stay on this tab — analysis runs on your device and can take a
-            couple of minutes.
-          </div>
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: progress.status === "coaching" ? "100%" : `${pct}%` }}
-            />
-          </div>
-          <p className="progress-label">
-            <span className="spinner" />
-            {progress.message}
-          </p>
-        </div>
+      {(progress.status === "fetching" ||
+        progress.status === "analyzing" ||
+        progress.status === "coaching") && (
+        <AnalysisProgress
+          progress={progress}
+          percent={pct}
+          gamesAnalyzed={profile?.gamesAnalyzed ?? 0}
+        />
       )}
 
-      {/* Board hero (left) + diagnosis / evidence / chart (right) */}
-      {started && (
-        <div className="drill-layout">
-          <div className="area-board">
-            <BoardDrill
-              blunder={current}
-              analyzing={progress.status === "analyzing"}
-              cleanDone={!!noBlunders}
-              practiceStatus={currentPractice}
-              queueStats={queueStats}
-              selIdx={selIdx}
-              onPractice={markPractice}
-              onPrev={() => setSelIdx((i) => Math.max(0, i - 1))}
-              onNext={() => setSelIdx((i) => Math.min(filtered.length - 1, i + 1))}
+      {hasResults && !noBlunders && diagnosis && (
+        <>
+          <ReportStepper view={reportView} onChange={setReportView} />
+
+          {reportView === "summary" && (
+            <ReportSummary
+              profile={profile}
+              diagnosis={diagnosis}
+              patternPayload={patternPayload}
+              coaching={coaching}
+              onEvidence={() => setReportView("evidence")}
+              onDrill={() => setReportView("drill")}
+              onPosition={focusBlunder}
             />
-          </div>
-
-          <div className="area-side">
-          <div className="area-diag">
-            {hasResults && !noBlunders && diagnosis && (
-              <div className="card diagnosis fade-in">
-                <p className="card-eyebrow">Diagnosis</p>
-                <p className="diag-headline">{diagnosis.title}</p>
-                <p className="diag-sub">{diagnosis.summary}</p>
-                <div className="diag-meta">
-                  <span className={`confidence ${diagnosis.confidence.toLowerCase().replace(" ", "-")}`}>
-                    {diagnosis.confidence} confidence
-                  </span>
-                  <span>{diagnosis.confidenceDetail}</span>
-                </div>
-                <div className="diag-drill">
-                  <span>Drill</span>
-                  <strong>{diagnosis.drill}</strong>
-                </div>
-                {diagnosis.examples.length > 0 && (
-                  <div className="diag-examples">
-                    {diagnosis.examples.map((b) => (
-                      <button key={blunderId(b)} onClick={() => focusBlunder(blunderId(b))}>
-                        <span>{MISTAKE_LABELS[b.mistakeKind]}</span>
-                        <strong>
-                          {b.move} → {bestMoveSan(b) ?? "stronger move"}
-                        </strong>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {patternPayload && patternPayload.top_patterns.length > 0 && (
-                  <div className="pattern-box">
-                    <span>Recurring patterns</span>
-                    {patternPayload.top_patterns.map((p) => (
-                      <button
-                        key={`${p.description}-${p.count}`}
-                        onClick={() => {
-                          const url = p.examples[0]?.game_url;
-                          if (url) window.open(url, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        <strong>{p.description}</strong>
-                        <small>
-                          {p.count} times, avg loss {p.avg_eval_loss.toFixed(1)} pawns
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {coaching ? (
-                  <p className="coaching">{coaching}</p>
-                ) : progress.status === "coaching" ? (
-                  <p className="progress-label">
-                    <span className="spinner" />
-                    Writing your coaching notes…
-                  </p>
-                ) : coachError ? (
-                  <button className="link" onClick={retryCoaching}>
-                    Coaching unavailable — retry
-                  </button>
-                ) : (
-                  <button className="link" onClick={retryCoaching}>
-                    Get coaching notes
-                  </button>
-                )}
-              </div>
-            )}
-            {hasResults && noBlunders && (
-              <div className="card fade-in">
-                <p className="card-eyebrow">Diagnosis</p>
-                <p className="diag-headline">Clean games.</p>
-                <p className="diag-sub">
-                  Nothing major flagged across {profile.gamesAnalyzed} games. Nice.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {profile && !noBlunders && (
-            <div className="area-evidence">
-              <Evidence
-                blunders={profile.blunders}
-                filtered={filtered}
-                selIdx={selIdx}
-                setSelIdx={setSelIdx}
-                filter={filter}
-                setFilter={setFilter}
-                practice={practice}
-              />
-            </div>
           )}
-          </div>
-        </div>
+
+          {reportView === "evidence" && (
+            <section className="evidence-screen fade-in">
+              <DiagnosisRail diagnosis={diagnosis} onSummary={() => setReportView("summary")} />
+              <div className="evidence-queue">
+                <Evidence
+                  blunders={profile.blunders}
+                  filtered={filtered}
+                  selIdx={selIdx}
+                  setSelIdx={setSelIdx}
+                  filter={filter}
+                  setFilter={setFilter}
+                  practice={practice}
+                />
+              </div>
+              <div className="evidence-board">
+                <BoardDrill
+                  blunder={current}
+                  analyzing={false}
+                  cleanDone={false}
+                  practiceStatus={currentPractice}
+                  queueStats={queueStats}
+                  selIdx={selIdx}
+                  onPractice={markPractice}
+                  onPrev={() => setSelIdx((i) => Math.max(0, i - 1))}
+                  onNext={() => setSelIdx((i) => Math.min(filtered.length - 1, i + 1))}
+                />
+              </div>
+            </section>
+          )}
+
+          {reportView === "drill" && (
+            <section className="drill-screen fade-in">
+              <div className="drill-board-column">
+                <div className="drill-theme-bar">
+                  <div>
+                    <small>Theme</small>
+                    <strong>{diagnosis.title.replace("Your biggest leak: ", "")}</strong>
+                  </div>
+                  <div>
+                    <small>Position</small>
+                    <strong>
+                      {selIdx + 1} of {queueStats.total}
+                    </strong>
+                  </div>
+                  <div>
+                    <small>Your turn</small>
+                    <strong>Find the best move.</strong>
+                  </div>
+                </div>
+                <BoardDrill
+                  blunder={current}
+                  analyzing={false}
+                  cleanDone={false}
+                  practiceStatus={currentPractice}
+                  queueStats={queueStats}
+                  selIdx={selIdx}
+                  onPractice={markPractice}
+                  onPrev={() => setSelIdx((i) => Math.max(0, i - 1))}
+                  onNext={() => setSelIdx((i) => Math.min(filtered.length - 1, i + 1))}
+                />
+              </div>
+              <DrillCoachPanel
+                diagnosis={diagnosis}
+                current={current}
+                onEvidence={() => setReportView("evidence")}
+              />
+            </section>
+          )}
+        </>
       )}
 
-      <p className="footer">Analysis runs in your browser · games from Chess.com · no account needed</p>
+      {hasResults && noBlunders && (
+        <section className="clean-report card fade-in">
+          <p className="card-eyebrow">Diagnosis</p>
+          <h1>Clean games.</h1>
+          <p>Nothing major was flagged across {profile.gamesAnalyzed} games. Nice work.</p>
+          <button className="secondary" onClick={() => setProfile(null)}>
+            Analyze another player
+          </button>
+        </section>
+      )}
+
+      {!started && (
+        <p className="footer landing-footer">
+          Private by design · powered by Stockfish · no account needed
+        </p>
+      )}
+      {hasResults && (
+        <p className="footer">
+          ▣ Private &amp; local: your games are analyzed on your device. Nothing is uploaded.
+        </p>
+      )}
     </main>
   );
 }

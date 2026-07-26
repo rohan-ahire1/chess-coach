@@ -24,6 +24,13 @@ export default function Navbar() {
             Play
           </Link>
         </nav>
+        <div className="nav-utilities">
+          <span className="local-indicator">▣ Local first</span>
+          <a className="help-link" href="mailto:hello@coachmate.app">
+            <span aria-hidden="true">?</span>
+            Help
+          </a>
+        </div>
       </div>
     </header>
   );
