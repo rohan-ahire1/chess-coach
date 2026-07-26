@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Chess, type Square } from "chess.js";
 import { Engine } from "@/lib/engine";
+import { HeroArtwork, PrivacyPill } from "../CoachViews";
 
 const Chessboard = dynamic(() => import("react-chessboard").then((m) => m.Chessboard), {
   ssr: false,
@@ -272,45 +273,81 @@ export default function PlayPage() {
     <main className="wrap">
       <div className="play-layout">
         <div className="area-board">
-          <div className="card board-card" ref={wrapRef}>
-            {tcKey !== "none" && phase !== "setup" && (
-              <Clock
-                ms={topClockMs}
-                who={topIsPlayer ? "You" : "Bot"}
-                active={gameRef.current.turn() === (orientation === "white" ? "b" : "w") && phase === "playing"}
+          {phase === "setup" ? (
+            <section className="play-intro">
+              <div>
+                <PrivacyPill />
+                <h1>Practice against the engine.</h1>
+                <p>
+                  Play Stockfish on your terms. Sharpen your skills, test new ideas, and build
+                  confidence in a focused, low-pressure environment.
+                </p>
+                <ul>
+                  <li>Realistic opponents at every level</li>
+                  <li>Safe space to experiment and improve</li>
+                  <li>Fully private. Runs locally in your browser.</li>
+                </ul>
+              </div>
+              <HeroArtwork compact />
+              <div className="play-trust-row">
+                <span>
+                  <b>▣</b>
+                  <strong>100% local</strong>
+                  <small>Runs in your browser</small>
+                </span>
+                <span>
+                  <b>◉</b>
+                  <strong>No uploads</strong>
+                  <small>Games stay on device</small>
+                </span>
+                <span>
+                  <b>♙</b>
+                  <strong>No accounts</strong>
+                  <small>No sign-up required</small>
+                </span>
+              </div>
+            </section>
+          ) : (
+            <div className="card board-card" ref={wrapRef}>
+              {tcKey !== "none" && (
+                <Clock
+                  ms={topClockMs}
+                  who={topIsPlayer ? "You" : "Bot"}
+                  active={gameRef.current.turn() === (orientation === "white" ? "b" : "w") && phase === "playing"}
+                />
+              )}
+              <Chessboard
+                position={fen}
+                boardWidth={boardW}
+                boardOrientation={orientation}
+                arePiecesDraggable={draggable}
+                onPieceDrop={(s, t) => onDrop(s as Square, t as Square)}
+                customArrows={arrows as any}
+                customBoardStyle={{ borderRadius: "8px", boxShadow: "none" }}
+                customDarkSquareStyle={{ backgroundColor: "#a9bca4" }}
+                customLightSquareStyle={{ backgroundColor: "#f0f0e8" }}
               />
-            )}
-            <Chessboard
-              position={fen}
-              boardWidth={boardW}
-              boardOrientation={orientation}
-              arePiecesDraggable={draggable}
-              onPieceDrop={(s, t) => onDrop(s as Square, t as Square)}
-              customArrows={arrows as any}
-              customBoardStyle={{ borderRadius: "10px", boxShadow: "none" }}
-              customDarkSquareStyle={{ backgroundColor: "#b7c4ba" }}
-              customLightSquareStyle={{ backgroundColor: "#eef1ec" }}
-            />
-            {tcKey !== "none" && phase !== "setup" && (
-              <Clock
-                ms={bottomClockMs}
-                who={topIsPlayer ? "Bot" : "You"}
-                active={gameRef.current.turn() === (orientation === "white" ? "w" : "b") && phase === "playing"}
-              />
-            )}
-          </div>
+              {tcKey !== "none" && (
+                <Clock
+                  ms={bottomClockMs}
+                  who={topIsPlayer ? "Bot" : "You"}
+                  active={gameRef.current.turn() === (orientation === "white" ? "w" : "b") && phase === "playing"}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="area-side">
           {phase === "setup" ? (
-            <div className="card">
-              <p className="card-eyebrow">New game</p>
-              <h2 className="section-title">Play the bot</h2>
+            <div className="card play-setup-card">
+              <p className="card-eyebrow">Game setup</p>
+              <h2>Choose your challenge</h2>
 
               <label className="play-label" htmlFor="elo">
-                Bot strength
+                Engine strength (Elo)
                 <span className="play-elo">
-                  ~{elo} · {eloLabel(elo)}
+                  {elo} · {eloLabel(elo)}
                 </span>
               </label>
               <input
@@ -323,8 +360,15 @@ export default function PlayPage() {
                 value={elo}
                 onChange={(e) => setElo(Number(e.target.value))}
               />
+              <div className="elo-scale" aria-hidden="true">
+                <span>600</span>
+                <span>1200</span>
+                <span>1800</span>
+                <span>2200</span>
+                <span>2600</span>
+              </div>
 
-              <label className="play-label">Your color</label>
+              <label className="play-label">Choose your color</label>
               <div className="seg">
                 {(["white", "black", "random"] as ColorChoice[]).map((c) => (
                   <button
@@ -332,7 +376,7 @@ export default function PlayPage() {
                     className={`seg-btn${colorChoice === c ? " active" : ""}`}
                     onClick={() => setColorChoice(c)}
                   >
-                    {c === "white" ? "White" : c === "black" ? "Black" : "Random"}
+                    {c === "white" ? "♙ White" : c === "black" ? "♟ Black" : "↝ Random"}
                   </button>
                 ))}
               </div>
@@ -351,8 +395,9 @@ export default function PlayPage() {
               </div>
 
               <button className="primary" onClick={startGame}>
-                Start game
+                ▶ Start game
               </button>
+              <small className="setup-private">▣ Private &amp; local: your game stays on your device.</small>
             </div>
           ) : (
             <div className="card play-panel">
