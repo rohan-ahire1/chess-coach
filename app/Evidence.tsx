@@ -2,6 +2,7 @@
 
 import { MISTAKE_LABELS, PHASE_LABELS, blunderId } from "@/lib/insights";
 import type { BlunderExample, MistakeKind, Phase, PracticeStatus } from "@/lib/types";
+import Icon from "./Icon";
 
 export type FilterKey = "all" | Phase | MistakeKind;
 
@@ -36,40 +37,69 @@ export default function Evidence({
     tactical_blind_spot: blunders.filter((b) => b.mistakeTags?.includes("tactical_blind_spot")).length,
   };
 
-  const chips: { key: FilterKey; label: string }[] = [
+  const mistakeChips: { key: FilterKey; label: string }[] = [
     { key: "all", label: "All" },
     { key: "hanging_piece", label: "Hanging" },
     { key: "bad_trade", label: "Trades" },
     { key: "time_pressure", label: "Low clock" },
     { key: "missed_capture", label: "Missed captures" },
     { key: "king_safety", label: "King safety" },
+  ];
+  const phaseChips: { key: FilterKey; label: string }[] = [
     { key: "opening", label: "Opening" },
     { key: "middlegame", label: "Middlegame" },
     { key: "endgame", label: "Endgame" },
   ];
 
+  const renderChip = (chip: { key: FilterKey; label: string }) => (
+    <button
+      key={chip.key}
+      className={`chip${filter === chip.key ? " active" : ""}`}
+      onClick={() => setFilter(chip.key)}
+      disabled={counts[chip.key] === 0 && chip.key !== "all"}
+      aria-pressed={filter === chip.key}
+    >
+      <span>{chip.label}</span>
+      <span className="chip-n" aria-label={`${counts[chip.key]} positions`}>
+        {counts[chip.key]}
+      </span>
+    </button>
+  );
+
   return (
     <div className="card evidence-card">
-      <p className="card-eyebrow">Evidence</p>
-      <h2 className="section-title">Your blunders</h2>
+      <div className="evidence-card-heading">
+        <div>
+          <p className="card-eyebrow">Evidence queue</p>
+          <h2 className="section-title">Your blunders</h2>
+          <p>Real moments from your games, ordered by evaluation loss.</p>
+        </div>
+        <span>
+          <strong>{filtered.length}</strong>
+          of {blunders.length}
+        </span>
+      </div>
 
-      <div className="filter-chips">
-        {chips.map((c) => (
-          <button
-            key={c.key}
-            className={`chip${filter === c.key ? " active" : ""}`}
-            onClick={() => setFilter(c.key)}
-            disabled={counts[c.key] === 0 && c.key !== "all"}
-          >
-            {c.label} <span className="chip-n">{counts[c.key]}</span>
-          </button>
-        ))}
+      <div className="filter-groups">
+        <div className="filter-group" role="group" aria-label="Filter by mistake type">
+          <span className="filter-label">Mistake type</span>
+          <div className="filter-chips">{mistakeChips.map(renderChip)}</div>
+        </div>
+        <div className="filter-group" role="group" aria-label="Filter by game phase">
+          <span className="filter-label">Game phase</span>
+          <div className="filter-chips">{phaseChips.map(renderChip)}</div>
+        </div>
       </div>
 
       {filtered.length > 0 && (
-        <div className="review-nav">
-          <button className="navbtn" onClick={() => setSelIdx(Math.max(0, selIdx - 1))} disabled={selIdx === 0}>
-            ◀
+        <div className="review-nav" aria-label="Evidence navigation">
+          <button
+            className="navbtn"
+            onClick={() => setSelIdx(Math.max(0, selIdx - 1))}
+            disabled={selIdx === 0}
+            aria-label="Previous evidence"
+          >
+            <Icon name="chevron-left" size={18} />
           </button>
           <span className="navlabel">
             {selIdx + 1} of {filtered.length}
@@ -78,14 +108,19 @@ export default function Evidence({
             className="navbtn"
             onClick={() => setSelIdx(Math.min(filtered.length - 1, selIdx + 1))}
             disabled={selIdx >= filtered.length - 1}
+            aria-label="Next evidence"
           >
-            ▶
+            <Icon name="chevron-right" size={18} />
           </button>
         </div>
       )}
 
       <div className="blunder-list">
-        {filtered.length === 0 && <p className="muted-note">No blunders in this filter.</p>}
+        {filtered.length === 0 && (
+          <p className="muted-note" role="status">
+            No blunders in this filter.
+          </p>
+        )}
         {filtered.map((b, i) => {
           const status = practice[blunderId(b)];
           return (
@@ -93,7 +128,19 @@ export default function Evidence({
               key={`${blunderId(b)}-${i}`}
               className={`blunder-row${i === selIdx ? " active" : ""}${status ? ` ${status}` : ""}`}
               onClick={() => setSelIdx(i)}
+              aria-pressed={i === selIdx}
+              aria-label={`${b.move}, ${MISTAKE_LABELS[b.mistakeKind]}, ${
+                PHASE_LABELS[b.phase]
+              }, game ${b.gameIndex + 1}, evaluation loss ${(b.swingCp / 100).toFixed(1)}${
+                status ? `, marked ${status}` : ""
+              }`}
             >
+              <span
+                className={`br-alert${b.swingCp >= 500 ? " severe" : ""}`}
+                aria-hidden="true"
+              >
+                <Icon name="warning" size={16} />
+              </span>
               <span className="br-move">{b.move}</span>
               <span className="br-meta">
                 {MISTAKE_LABELS[b.mistakeKind]} · {PHASE_LABELS[b.phase]} · g{b.gameIndex + 1}

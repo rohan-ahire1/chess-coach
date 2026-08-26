@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { Chess, type Square } from "chess.js";
 import { Engine } from "@/lib/engine";
 import { HeroArtwork, PrivacyPill } from "../CoachViews";
+import Icon from "../Icon";
 
 const Chessboard = dynamic(() => import("react-chessboard").then((m) => m.Chessboard), {
   ssr: false,
@@ -65,6 +66,8 @@ export default function PlayPage() {
   const [hint, setHint] = useState<BoardArrow | null>(null);
   const [whiteMs, setWhiteMs] = useState(0);
   const [blackMs, setBlackMs] = useState(0);
+  const [starting, setStarting] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   // Responsive board sizing
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -72,19 +75,23 @@ export default function PlayPage() {
   useEffect(() => {
     const measure = () => {
       const w = wrapRef.current?.clientWidth;
-      const h = wrapRef.current?.clientHeight;
       if (!w) return;
-      const maxByHeight = h ? Math.max(240, h - 130) : Math.max(240, window.innerHeight - 320);
-      setBoardW(Math.max(240, Math.min(w - 44, maxByHeight, 1040)));
+      const maxByWidth = Math.max(180, w - 40);
+      const viewportLimit = Math.max(180, window.innerHeight - (tcKey === "none" ? 220 : 320));
+      const nextWidth = Math.floor(Math.min(maxByWidth, viewportLimit, 1040));
+      setBoardW((current) => (current === nextWidth ? current : nextWidth));
     };
     measure();
     const t = setTimeout(measure, 50);
+    const observer = new ResizeObserver(measure);
+    if (wrapRef.current) observer.observe(wrapRef.current);
     window.addEventListener("resize", measure);
     return () => {
       clearTimeout(t);
+      observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [phase]);
+  }, [phase, tcKey]);
 
   useEffect(() => () => engineRef.current?.terminate(), []);
 
@@ -167,6 +174,9 @@ export default function PlayPage() {
   }
 
   async function startGame() {
+    if (starting) return;
+    setStarting(true);
+    setSetupError(null);
     const color: "w" | "b" =
       colorChoice === "random" ? (Math.random() < 0.5 ? "w" : "b") : colorChoice === "white" ? "w" : "b";
     const g = new Chess();
@@ -182,18 +192,26 @@ export default function PlayPage() {
     setWhiteMs(TCS[tcKey].base);
     setBlackMs(TCS[tcKey].base);
 
-    if (!engineRef.current) {
-      engineRef.current = new Engine();
-      await engineRef.current.init();
-    }
-    await engineRef.current.setStrength(elo);
+    try {
+      if (!engineRef.current) {
+        engineRef.current = new Engine();
+        await engineRef.current.init();
+      }
+      await engineRef.current.setStrength(elo);
 
-    setPhase("playing");
-    if (color === "b") {
-      setStatus("Bot is thinking…");
-      window.setTimeout(() => botMove(engineRef.current ?? undefined), 300);
-    } else {
-      setStatus("Your move.");
+      setPhase("playing");
+      if (color === "b") {
+        setStatus("Bot is thinking…");
+        window.setTimeout(() => botMove(engineRef.current ?? undefined), 300);
+      } else {
+        setStatus("Your move.");
+      }
+    } catch {
+      engineRef.current?.terminate();
+      engineRef.current = null;
+      setSetupError("The engine couldn’t start. Reload the page and try again.");
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -232,6 +250,7 @@ export default function PlayPage() {
     setHint(null);
     setLastMove(null);
     setStatus("");
+    setSetupError(null);
     setFen(START_FEN);
     setHistory([]);
   }
@@ -263,7 +282,10 @@ export default function PlayPage() {
   const topIsPlayer = (orientation === "white" ? "b" : "w") === playerColor;
 
   const Clock = ({ ms, who, active }: { ms: number; who: string; active: boolean }) => (
-    <div className={`clock${active ? " active" : ""}`}>
+    <div
+      className={`clock${active ? " active" : ""}`}
+      aria-label={`${who} clock: ${fmtClock(ms)}${active ? ", running" : ""}`}
+    >
       <span className="clock-who">{who}</span>
       <strong className="clock-time">{fmtClock(ms)}</strong>
     </div>
@@ -271,7 +293,7 @@ export default function PlayPage() {
 
   return (
     <main className="wrap">
-      <div className="play-layout">
+      <div className={`play-layout ${phase}`}>
         <div className="area-board">
           {phase === "setup" ? (
             <section className="play-intro">
@@ -291,17 +313,17 @@ export default function PlayPage() {
               <HeroArtwork compact />
               <div className="play-trust-row">
                 <span>
-                  <b>▣</b>
+                  <b><Icon name="shield-check" size={20} /></b>
                   <strong>100% local</strong>
                   <small>Runs in your browser</small>
                 </span>
                 <span>
-                  <b>◉</b>
+                  <b><Icon name="eye-off" size={20} /></b>
                   <strong>No uploads</strong>
                   <small>Games stay on device</small>
                 </span>
                 <span>
-                  <b>♙</b>
+                  <b><Icon name="user" size={20} /></b>
                   <strong>No accounts</strong>
                   <small>No sign-up required</small>
                 </span>
@@ -359,6 +381,12 @@ export default function PlayPage() {
                 step={50}
                 value={elo}
                 onChange={(e) => setElo(Number(e.target.value))}
+                aria-valuetext={`${elo} Elo, ${eloLabel(elo)}`}
+                style={
+                  {
+                    "--slider-progress": `${((elo - 600) / (2600 - 600)) * 100}%`,
+                  } as CSSProperties
+                }
               />
               <div className="elo-scale" aria-hidden="true">
                 <span>600</span>
@@ -368,63 +396,93 @@ export default function PlayPage() {
                 <span>2600</span>
               </div>
 
-              <label className="play-label">Choose your color</label>
-              <div className="seg">
-                {(["white", "black", "random"] as ColorChoice[]).map((c) => (
-                  <button
-                    key={c}
-                    className={`seg-btn${colorChoice === c ? " active" : ""}`}
-                    onClick={() => setColorChoice(c)}
-                  >
-                    {c === "white" ? "♙ White" : c === "black" ? "♟ Black" : "↝ Random"}
-                  </button>
-                ))}
-              </div>
+              <fieldset className="play-fieldset">
+                <legend className="play-label">Choose your color</legend>
+                <div className="seg">
+                  {(["white", "black", "random"] as ColorChoice[]).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`seg-btn${colorChoice === c ? " active" : ""}`}
+                      onClick={() => setColorChoice(c)}
+                      aria-pressed={colorChoice === c}
+                    >
+                      {c === "white" ? (
+                        <><span className="color-token white" aria-hidden="true" /> White</>
+                      ) : c === "black" ? (
+                        <><span className="color-token black" aria-hidden="true" /> Black</>
+                      ) : (
+                        <><Icon name="shuffle" size={15} /> Random</>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
 
-              <label className="play-label">Time control</label>
-              <div className="seg">
-                {(Object.keys(TCS) as TcKey[]).map((k) => (
-                  <button
-                    key={k}
-                    className={`seg-btn${tcKey === k ? " active" : ""}`}
-                    onClick={() => setTcKey(k)}
-                  >
-                    {TCS[k].label}
-                  </button>
-                ))}
-              </div>
+              <fieldset className="play-fieldset">
+                <legend className="play-label">Time control</legend>
+                <div className="seg">
+                  {(Object.keys(TCS) as TcKey[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`seg-btn${tcKey === k ? " active" : ""}`}
+                      onClick={() => setTcKey(k)}
+                      aria-pressed={tcKey === k}
+                    >
+                      {TCS[k].label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
 
-              <button className="primary" onClick={startGame}>
-                ▶ Start game
+              <button
+                className="primary"
+                onClick={startGame}
+                disabled={starting}
+                aria-busy={starting}
+              >
+                {starting ? <span className="spinner button-spinner" /> : <Icon name="play" size={18} />}
+                {starting ? "Starting engine…" : "Start game"}
               </button>
-              <small className="setup-private">▣ Private &amp; local: your game stays on your device.</small>
+              <div className="setup-message" role={setupError ? "alert" : undefined} aria-live="polite">
+                {setupError ?? "\u00a0"}
+              </div>
+              <small className="setup-private">
+                <Icon name="lock" size={13} /> Private &amp; local: your game stays on your device.
+              </small>
             </div>
           ) : (
             <div className="card play-panel">
               <div className="play-status-row">
                 <span className="card-eyebrow">{eloLabel(elo)} bot · ~{elo}</span>
                 <button className="link" onClick={newGame}>
-                  New game
+                  <Icon name="refresh" size={15} /> New game
                 </button>
               </div>
 
-              <p className={`play-status${result ? " final" : ""}`}>
+              <p
+                className={`play-status${result ? " final" : ""}`}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 {thinking && <span className="spinner" />}
                 {result ?? status}
               </p>
 
               <div className="drill-actions">
                 <button className="secondary" onClick={showHint} disabled={phase !== "playing" || thinking}>
-                  Hint
+                  <Icon name="lightbulb" size={17} /> Hint
                 </button>
                 <button className="secondary" onClick={takeback} disabled={thinking || history.length < 2}>
-                  Takeback
+                  <Icon name="rotate-ccw" size={17} /> Takeback
                 </button>
                 <button className="secondary" onClick={() => setOrientation((o) => (o === "white" ? "black" : "white"))}>
-                  Flip board
+                  <Icon name="refresh" size={17} /> Flip board
                 </button>
                 <button className="secondary bad" onClick={resign} disabled={phase !== "playing"}>
-                  Resign
+                  <Icon name="warning" size={17} /> Resign
                 </button>
               </div>
 
