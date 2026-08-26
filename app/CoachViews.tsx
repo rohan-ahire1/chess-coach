@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   MISTAKE_LABELS,
   PHASE_LABELS,
@@ -15,13 +16,14 @@ import type {
   Profile,
   ProgressState,
 } from "@/lib/types";
+import Icon, { type IconName } from "./Icon";
 
 export type ReportView = "summary" | "evidence" | "drill";
 
 export function PrivacyPill() {
   return (
     <span className="privacy-pill">
-      <span aria-hidden="true">▣</span>
+      <Icon name="lock" size={14} />
       Private. Local. Yours.
     </span>
   );
@@ -38,7 +40,14 @@ export function HeroArtwork({ compact = false }: { compact?: boolean }) {
           <i key={i} className={i % 2 === Math.floor(i / 6) % 2 ? "sage" : ""} />
         ))}
       </span>
-      <img src="/images/chess-hero.png" alt="" />
+      <Image
+        src="/images/chess-hero.png"
+        alt=""
+        width={900}
+        height={675}
+        sizes={compact ? "(max-width: 640px) 88vw, 380px" : "(max-width: 900px) 90vw, 520px"}
+        priority={!compact}
+      />
     </div>
   );
 }
@@ -67,8 +76,12 @@ export function ReportStepper({
             }`}
             onClick={() => onChange(step.key)}
             aria-current={index === activeIndex ? "step" : undefined}
+            aria-pressed={index === activeIndex}
+            aria-label={`${step.title}: ${step.sub}`}
           >
-            <span className="report-step-num">{index < activeIndex ? "✓" : index + 1}</span>
+            <span className="report-step-num" aria-hidden="true">
+              {index < activeIndex ? <Icon name="check" size={14} /> : index + 1}
+            </span>
             <span>
               <strong>{step.title}</strong>
               <small>{step.sub}</small>
@@ -128,19 +141,33 @@ export function AnalysisProgress({
   ];
 
   return (
-    <section className="analysis-screen fade-in">
+    <section
+      className="analysis-screen fade-in"
+      aria-labelledby="analysis-title"
+      aria-busy="true"
+    >
+      <p className="sr-only" role="status" aria-live="polite">
+        {progress.message || `Report ${Math.round(overall)}% complete`}
+      </p>
       <div className="analysis-main card">
         <span className="analysis-icon" aria-hidden="true">
-          ▤
+          <Icon name="file-text" size={28} />
         </span>
-        <h1>Building your report</h1>
+        <h1 id="analysis-title">Building your report</h1>
         <p>
           We’re analyzing your recent games with Stockfish right in your browser.
           <br />
           No uploads, no cloud—your chess stays private.
         </p>
         <div className="analysis-progress-line">
-          <div className="progress-track">
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-label="Report progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(overall)}
+          >
             <div className="progress-fill" style={{ width: `${Math.min(100, overall)}%` }} />
           </div>
           <strong>{Math.round(overall)}%</strong>
@@ -152,8 +179,9 @@ export function AnalysisProgress({
                 className={`analysis-stage-dot${
                   index < currentStep ? " complete" : index === currentStep ? " active" : ""
                 }`}
+                aria-hidden="true"
               >
-                {index < currentStep ? "✓" : index + 1}
+                {index < currentStep ? <Icon name="check" size={15} /> : index + 1}
               </span>
               <strong>{step.label}</strong>
             </div>
@@ -163,7 +191,13 @@ export function AnalysisProgress({
           {steps.map((step, index) => (
             <div key={step.label} className={index === currentStep ? "active" : ""}>
               <span className="task-status" aria-hidden="true">
-                {index < currentStep ? "✓" : index === currentStep ? "◌" : "○"}
+                {index < currentStep ? (
+                  <Icon name="check-circle" size={18} />
+                ) : index === currentStep ? (
+                  <span className="spinner task-spinner" />
+                ) : (
+                  <span className="task-upcoming" />
+                )}
               </span>
               <strong>{step.label}</strong>
               <small>{step.detail}</small>
@@ -175,17 +209,17 @@ export function AnalysisProgress({
         </div>
         <div className="analysis-assurances">
           <span>
-            <b>ⓘ</b>
+            <b><Icon name="info" size={21} /></b>
             <strong>You can leave this tab open</strong>
             <small>Analysis continues in your browser.</small>
           </span>
           <span>
-            <b>▱</b>
+            <b><Icon name="window" size={21} /></b>
             <strong>Runs locally</strong>
             <small>Your games never leave this device.</small>
           </span>
           <span>
-            <b>↻</b>
+            <b><Icon name="refresh" size={21} /></b>
             <strong>Progress is saved</strong>
             <small>We’ll restore completed games after a reload.</small>
           </span>
@@ -212,7 +246,7 @@ export function AnalysisProgress({
           <li>Measuring accuracy and advantage</li>
         </ul>
         <div className="analysis-private">
-          <strong>▣ Your data never leaves your device</strong>
+          <strong><Icon name="shield-check" size={18} /> Your data never leaves your device</strong>
           <small>100% private. 100% local. Nothing is uploaded or shared.</small>
         </div>
       </aside>
@@ -226,14 +260,14 @@ function Metric({
   value,
   detail,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   value: string;
   detail: string;
 }) {
   return (
     <div className="report-metric">
-      <span aria-hidden="true">{icon}</span>
+      <span aria-hidden="true"><Icon name={icon} size={23} /></span>
       <div>
         <small>{label}</small>
         <strong>{value}</strong>
@@ -280,21 +314,25 @@ export function ReportSummary({
     <section className="summary-layout fade-in">
       <div className="summary-primary">
         <article className="card summary-diagnosis">
-          <p className="card-eyebrow">◎ Diagnosis</p>
+          <p className="card-eyebrow">
+            <Icon name="target" size={14} />
+            Diagnosis
+          </p>
           <h1>{diagnosis.title}</h1>
           <span className={`confidence ${diagnosis.confidence.toLowerCase().replace(" ", "-")}`}>
-            ▥ {diagnosis.confidence} confidence
+            <Icon name="bars" size={14} />
+            {diagnosis.confidence} confidence
           </span>
           <div className="report-metrics">
-            <Metric icon="⌁" label="Frequency" value={`${share}%`} detail="of flagged positions" />
+            <Metric icon="pulse" label="Frequency" value={`${share}%`} detail="of flagged positions" />
             <Metric
-              icon="↘"
+              icon="arrow-down-right"
               label="Average impact"
               value={`−${avgLoss.toFixed(1)}`}
               detail="pawns in matching cases"
             />
             <Metric
-              icon="▥"
+              icon="bars"
               label="Games analyzed"
               value={`${profile.gamesAnalyzed}`}
               detail="recent games"
@@ -316,7 +354,7 @@ export function ReportSummary({
                 ]
             ).map((pattern) => (
               <span key={pattern.description}>
-                <b>♟</b>
+                <b><Icon name="target" size={17} /></b>
                 <strong>{pattern.description}</strong>
                 <small>{pattern.count} matching positions</small>
               </span>
@@ -324,7 +362,7 @@ export function ReportSummary({
           </div>
           <div className="summary-action">
             <button className="primary inline" onClick={onEvidence}>
-              Review the evidence <span>→</span>
+              Review the evidence <Icon name="arrow-right" size={17} />
             </button>
             <small>See the moments and engine comparisons behind this diagnosis.</small>
           </div>
@@ -332,7 +370,7 @@ export function ReportSummary({
 
         <article className="card next-action">
           <span className="next-action-icon" aria-hidden="true">
-            ◎
+            <Icon name="target" size={29} />
           </span>
           <div>
             <small>Next best action</small>
@@ -340,14 +378,14 @@ export function ReportSummary({
             <p>{diagnosis.drill}</p>
           </div>
           <button className="secondary" onClick={onDrill}>
-            Start drilling →
+            Start drilling <Icon name="arrow-right" size={16} />
           </button>
         </article>
       </div>
 
       <aside className="summary-side">
         <article className="card report-snapshot">
-          <h2>▥ Report snapshot</h2>
+          <h2><Icon name="bars" size={17} /> Report snapshot</h2>
           <p>Flagged themes</p>
           <div className="snapshot-bars">
             {mistakeRows.map(([kind, count], index) => (
@@ -403,7 +441,7 @@ export function ReportSummary({
                   {(example.swingCp / 100).toFixed(1)}
                 </small>
               </span>
-              <b>›</b>
+              <b aria-hidden="true"><Icon name="chevron-right" size={16} /></b>
             </button>
           ))}
         </article>
@@ -431,10 +469,10 @@ export function DiagnosisRail({
       <h3>Focus of this review</h3>
       <p>{diagnosis.drill}</p>
       <button className="secondary" onClick={onSummary}>
-        ← Back to summary
+        <Icon name="arrow-left" size={16} /> Back to summary
       </button>
       <div className="rail-tip">
-        <strong>☼ Tip</strong>
+        <strong><Icon name="lightbulb" size={16} /> Tip</strong>
         <p>Review the proof first, then solve the same positions so the pattern sticks.</p>
       </div>
     </aside>
@@ -454,7 +492,7 @@ export function DrillCoachPanel({
     <aside className="drill-coach">
       <article className="card">
         <span className="coach-target" aria-hidden="true">
-          ◎
+          <Icon name="target" size={25} />
         </span>
         <h2>Why this position matters</h2>
         <p>{diagnosis.summary}</p>
@@ -466,7 +504,7 @@ export function DrillCoachPanel({
           <li>Are there safer forcing moves?</li>
         </ul>
         <div className="key-idea">
-          <strong>☼ Key idea</strong>
+          <strong><Icon name="lightbulb" size={16} /> Key idea</strong>
           <span>{diagnosis.drill}</span>
         </div>
       </article>

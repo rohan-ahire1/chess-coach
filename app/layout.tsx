@@ -54,8 +54,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body>
+        <a className="skip-link" href="#main-content">
+          Skip to main content
+        </a>
         <Navbar />
-        <div className="app-main">{children}</div>
+        <div className="app-main" id="main-content">
+          {children}
+        </div>
       </body>
     </html>
   );

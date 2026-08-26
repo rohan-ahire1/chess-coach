@@ -10,6 +10,7 @@ import { MISTAKE_LABELS, blunderId, buildDiagnosis } from "@/lib/insights";
 import type { MistakeKind, Phase, PracticeStatus, Profile, ProgressState, TimeControl } from "@/lib/types";
 import BoardDrill from "./BoardDrill";
 import Evidence, { type FilterKey } from "./Evidence";
+import Icon, { type IconName } from "./Icon";
 import {
   AnalysisProgress,
   DiagnosisRail,
@@ -23,6 +24,14 @@ import {
 
 const STORE_KEY = "cwc:profile";
 const COMPLETE_KEY = "cwc:complete";
+
+const REPORT_FEATURES: Array<{ icon: IconName; title: string; copy: string }> = [
+  { icon: "target", title: "Main weakness", copy: "Your biggest patterns, ranked by impact." },
+  { icon: "file-text", title: "Annotated games", copy: "Key moments with engine explanations." },
+  { icon: "check-circle", title: "Recurring patterns", copy: "Themes and tactical motifs you miss." },
+  { icon: "sparkle", title: "Training positions", copy: "Curated drills from your own games." },
+  { icon: "trend-up", title: "Progress over time", copy: "Track improvement across reports." },
+];
 
 async function getCoaching(profile: Profile): Promise<string> {
   const res = await fetch("/api/coach", {
@@ -366,91 +375,121 @@ export default function Home() {
                 uploads, no cloud. Clear insights. Personalized coaching.
               </p>
 
-              <div className="hero-form">
-                <div>
-                  <label htmlFor="u">Chess.com username</label>
-                  <input
-                    id="u"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. Hikaru"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    disabled={running}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && username.trim()) run();
-                    }}
-                  />
+              <form
+                className="hero-analysis-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!username.trim()) {
+                    setError("Enter a Chess.com username to begin.");
+                    return;
+                  }
+                  if (!running) run();
+                }}
+                noValidate
+              >
+                <div className="hero-form">
+                  <div>
+                    <label htmlFor="u">Chess.com username</label>
+                    <input
+                      id="u"
+                      name="username"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="e.g. Hikaru"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="go"
+                      required
+                      disabled={running}
+                      aria-invalid={!!error}
+                      aria-describedby={error ? "analysis-form-message" : undefined}
+                      aria-errormessage={error ? "analysis-form-message" : undefined}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="tc">Time control</label>
+                    <select
+                      id="tc"
+                      name="time-control"
+                      value={timeControl}
+                      onChange={(e) => setTimeControl(e.target.value as TimeControl)}
+                      disabled={running}
+                    >
+                      <option value="rapid">Rapid</option>
+                      <option value="blitz">Blitz</option>
+                      <option value="all">All</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="gc">Recent games</label>
+                    <select
+                      id="gc"
+                      name="game-count"
+                      value={gameCount}
+                      onChange={(e) => setGameCount(Number(e.target.value))}
+                      disabled={running}
+                    >
+                      <option value={5}>5 — fastest</option>
+                      <option value={10}>10</option>
+                      <option value={15}>15 — recommended</option>
+                      <option value={20}>20</option>
+                      <option value={30}>30 — slowest</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="tc">Time control</label>
-                  <select
-                    id="tc"
-                    value={timeControl}
-                    onChange={(e) => setTimeControl(e.target.value as TimeControl)}
+                <div className="hero-actions">
+                  <button
+                    className="primary inline"
+                    type="submit"
                     disabled={running}
                   >
-                    <option value="rapid">Rapid</option>
-                    <option value="blitz">Blitz</option>
-                    <option value="all">All</option>
-                  </select>
+                    <Icon name="sparkle" size={17} /> Analyze my games
+                  </button>
+                  <button className="secondary" type="button" onClick={loadDemo} disabled={running}>
+                    <Icon name="file-text" size={17} /> View demo report
+                  </button>
                 </div>
-                <div>
-                  <label htmlFor="gc">Recent games</label>
-                  <select
-                    id="gc"
-                    value={gameCount}
-                    onChange={(e) => setGameCount(Number(e.target.value))}
-                    disabled={running}
-                  >
-                    <option value={5}>5 — fastest</option>
-                    <option value={10}>10</option>
-                    <option value={15}>15 — recommended</option>
-                    <option value={20}>20</option>
-                    <option value={30}>30 — slowest</option>
-                  </select>
+                <p className="hero-privacy">
+                  <Icon name="lock" size={13} /> Private &amp; local: your games stay on your device.
+                </p>
+                <div
+                  id="analysis-form-message"
+                  className={`hero-form-message${error ? " error" : ""}`}
+                  role={error ? "alert" : undefined}
+                  aria-live="polite"
+                >
+                  {error ?? "\u00a0"}
                 </div>
-              </div>
-              <div className="hero-actions">
-                <button className="primary inline" onClick={run} disabled={running || !username.trim()}>
-                  ✦ Analyze my games
-                </button>
-                <button className="secondary" onClick={loadDemo} disabled={running}>
-                  ▤ View demo report
-                </button>
-              </div>
-              <p className="hero-privacy">▣ Private &amp; local: your games stay on your device.</p>
+              </form>
             </div>
 
             <HeroArtwork />
           </section>
 
-          {error && (
-            <div className="card landing-error">
-              <p className="error">{error}</p>
-            </div>
-          )}
-
           <section className="how-it-works">
             <h2>Three simple steps to better chess</h2>
             <div>
               <article>
-                <span>⌕</span>
+                <span><Icon name="search" size={31} /></span>
                 <small>1</small>
                 <h3>Diagnose</h3>
                 <p>We analyze your games with Stockfish and surface recurring mistakes.</p>
               </article>
-              <b aria-hidden="true">›</b>
+              <b aria-hidden="true"><Icon name="chevron-right" size={24} /></b>
               <article>
-                <span>▤</span>
+                <span><Icon name="file-text" size={30} /></span>
                 <small>2</small>
                 <h3>Review evidence</h3>
                 <p>Explore annotated moments so you understand what went wrong and why.</p>
               </article>
-              <b aria-hidden="true">›</b>
+              <b aria-hidden="true"><Icon name="chevron-right" size={24} /></b>
               <article>
-                <span>◎</span>
+                <span><Icon name="target" size={31} /></span>
                 <small>3</small>
                 <h3>Drill positions</h3>
                 <p>Practice the positions that matter most and turn insight into improvement.</p>
@@ -460,7 +499,7 @@ export default function Home() {
 
           <section className="privacy-band">
             <div>
-              <span aria-hidden="true">▣</span>
+              <span aria-hidden="true"><Icon name="lock" size={24} /></span>
               <div>
                 <h2>Your data stays private</h2>
                 <p>All analysis runs locally in your browser using Stockfish.</p>
@@ -468,22 +507,22 @@ export default function Home() {
             </div>
             <div className="privacy-points">
               <span>
-                <b>♙</b>
+                <b><Icon name="shield-check" size={20} /></b>
                 <strong>100% local</strong>
                 <small>Runs in your browser</small>
               </span>
               <span>
-                <b>◉</b>
+                <b><Icon name="eye-off" size={20} /></b>
                 <strong>No uploads</strong>
                 <small>Games never leave</small>
               </span>
               <span>
-                <b>♙</b>
+                <b><Icon name="user" size={20} /></b>
                 <strong>No accounts</strong>
                 <small>No sign-up required</small>
               </span>
               <span>
-                <b>✓</b>
+                <b><Icon name="check-circle" size={20} /></b>
                 <strong>Open &amp; transparent</strong>
                 <small>Built on open technology</small>
               </span>
@@ -493,15 +532,9 @@ export default function Home() {
           <section className="report-features">
             <h2>What’s inside your report</h2>
             <div>
-              {[
-                ["◎", "Main weakness", "Your biggest patterns, ranked by impact."],
-                ["▥", "Annotated games", "Key moments with engine explanations."],
-                ["✓", "Recurring patterns", "Themes and tactical motifs you miss."],
-                ["✦", "Training positions", "Curated drills from your own games."],
-                ["↗", "Progress over time", "Track improvement across reports."],
-              ].map(([icon, title, copy]) => (
+              {REPORT_FEATURES.map(({ icon, title, copy }) => (
                 <article key={title}>
-                  <span>{icon}</span>
+                  <span><Icon name={icon} size={20} /></span>
                   <div>
                     <h3>{title}</h3>
                     <p>{copy}</p>
@@ -516,7 +549,8 @@ export default function Home() {
       {hasResults && (
         <div className="results-top report-context">
           <span className="results-for">
-            <strong>{username}</strong> · {profile.gamesAnalyzed} games
+            <strong>{username || (progress.partial ? "Recovered report" : "Report")}</strong> ·{" "}
+            {profile.gamesAnalyzed} games
             {profile.rating ? ` · ~${profile.rating}` : ""}
             {progress.partial && <span className="partial-badge">partial</span>}
             {coachError && (
@@ -538,7 +572,7 @@ export default function Home() {
               setProgress({ status: "idle", current: 0, total: 0, message: "", partial: false });
             }}
           >
-            ← New search
+            <Icon name="arrow-left" size={15} /> New search
           </button>
         </div>
       )}
@@ -594,6 +628,7 @@ export default function Home() {
                   onPractice={markPractice}
                   onPrev={() => setSelIdx((i) => Math.max(0, i - 1))}
                   onNext={() => setSelIdx((i) => Math.min(filtered.length - 1, i + 1))}
+                  onOpenDrill={() => setReportView("drill")}
                 />
               </div>
             </section>
@@ -641,9 +676,12 @@ export default function Home() {
       )}
 
       {hasResults && noBlunders && (
-        <section className="clean-report card fade-in">
+        <section className="clean-report card fade-in" aria-labelledby="clean-report-title">
+          <span className="clean-report-icon" aria-hidden="true">
+            <Icon name="check-circle" size={30} />
+          </span>
           <p className="card-eyebrow">Diagnosis</p>
-          <h1>Clean games.</h1>
+          <h1 id="clean-report-title">Clean games.</h1>
           <p>Nothing major was flagged across {profile.gamesAnalyzed} games. Nice work.</p>
           <button className="secondary" onClick={() => setProfile(null)}>
             Analyze another player
@@ -658,7 +696,7 @@ export default function Home() {
       )}
       {hasResults && (
         <p className="footer">
-          ▣ Private &amp; local: your games are analyzed on your device. Nothing is uploaded.
+          <Icon name="lock" size={12} /> Private &amp; local: your games are analyzed on your device. Nothing is uploaded.
         </p>
       )}
     </main>

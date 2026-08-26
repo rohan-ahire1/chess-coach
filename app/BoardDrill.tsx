@@ -13,6 +13,7 @@ import {
   whyFlagged,
 } from "@/lib/insights";
 import type { BlunderExample, PracticeStatus } from "@/lib/types";
+import Icon from "./Icon";
 
 const Chessboard = dynamic(() => import("react-chessboard").then((m) => m.Chessboard), {
   ssr: false,
@@ -108,8 +109,20 @@ function EvalBar({
   const label = mate ? "M" : pawns >= 9.95 ? Math.round(pawns).toString() : pawns.toFixed(1);
   const whiteLeads = whiteCp >= 0;
   const numAtBottom = whiteLeads === whiteAtBottom;
+  const evaluation = mate
+    ? `${whiteLeads ? "White" : "Black"} has a forced mate`
+    : `${whiteLeads ? "White" : "Black"} leads by ${label} pawns`;
   return (
-    <div className="eval-bar" style={{ height }}>
+    <div
+      className="eval-bar"
+      style={{ height }}
+      role="meter"
+      aria-label="Position evaluation"
+      aria-valuemin={-10000}
+      aria-valuemax={10000}
+      aria-valuenow={Math.max(-10000, Math.min(10000, whiteCp))}
+      aria-valuetext={evaluation}
+    >
       <div
         className="eval-white"
         style={{ height: `${frac * 100}%`, [whiteAtBottom ? "bottom" : "top"]: 0 }}
@@ -134,6 +147,7 @@ export default function BoardDrill({
   onPractice,
   onPrev,
   onNext,
+  onOpenDrill,
 }: {
   blunder: BlunderExample | undefined;
   analyzing: boolean;
@@ -144,6 +158,7 @@ export default function BoardDrill({
   onPractice: (status: PracticeStatus) => void;
   onPrev: () => void;
   onNext: () => void;
+  onOpenDrill?: () => void;
 }) {
   const engineRef = useRef<Engine | null>(null);
   const [bs, setBs] = useState<BoardState | null>(null);
@@ -156,21 +171,23 @@ export default function BoardDrill({
   useEffect(() => {
     const measure = () => {
       const w = wrapRef.current?.clientWidth;
-      const h = wrapRef.current?.clientHeight;
       if (!w) return;
-      // Card padding (44) + eval bar (26) and its gap (8) sit beside/around the board.
-      const maxByWidth = w - 78;
-      // Reserve room for the card head + the first rows of replay controls.
-      // Anything taller scrolls inside .board-scroll, so this can stay modest
-      // and keep the board itself large.
-      const maxByHeight = h ? Math.max(240, h - 268) : Math.max(240, window.innerHeight - 360);
-      setBoardW(Math.max(240, Math.min(maxByWidth, maxByHeight, 1040)));
+      // Keep the board, evaluation bar, gap, and card padding inside the actual
+      // container. A small floor is useful, but it must never override width.
+      const maxByWidth = Math.max(168, w - 78);
+      const viewportLimit = Math.max(168, window.innerHeight - 340);
+      const sizeCap = wrapRef.current?.closest(".drill-screen") ? 500 : 560;
+      const nextWidth = Math.floor(Math.min(maxByWidth, viewportLimit, sizeCap));
+      setBoardW((current) => (current === nextWidth ? current : nextWidth));
     };
     measure();
     const t = setTimeout(measure, 50);
+    const observer = new ResizeObserver(measure);
+    if (wrapRef.current) observer.observe(wrapRef.current);
     window.addEventListener("resize", measure);
     return () => {
       clearTimeout(t);
+      observer.disconnect();
       window.removeEventListener("resize", measure);
     };
   }, [key]);
@@ -399,7 +416,7 @@ export default function BoardDrill({
         </div>
       )}
 
-      <div className="board-row">
+      <div className="board-row" role="group" aria-label="Interactive training position">
         <EvalBar
           whiteCp={bs ? bs.evalWhiteCp : 0}
           height={boardW}
@@ -422,7 +439,7 @@ export default function BoardDrill({
 
       <div className="board-scroll">
       {!blunder && (
-        <p className="review-empty">
+        <p className="review-empty" role="status">
           {analyzing
             ? "Analyzing your games… blunders will appear here to replay."
             : cleanDone
@@ -438,6 +455,9 @@ export default function BoardDrill({
             {PHASE_LABELS[blunder.phase]} · cost {(blunder.swingCp / 100).toFixed(1)}
           </p>
           <p
+            id="drill-feedback"
+            aria-live="polite"
+            aria-atomic="true"
             className={
               bs.status === "solved"
                 ? "drill-feedback ok"
@@ -456,7 +476,7 @@ export default function BoardDrill({
               disabled={bs.status === "ready"}
               title="Put the pieces back and try the position again"
             >
-              ↺ Reset position
+              <Icon name="rotate-ccw" size={17} /> Reset position
             </button>
             {blunder.bestMoveUci && (
               <button
@@ -464,7 +484,7 @@ export default function BoardDrill({
                 onClick={showBest}
                 disabled={bs.status === "best"}
               >
-                💡 Best move
+                <Icon name="lightbulb" size={17} /> Best move
               </button>
             )}
             <button
@@ -472,8 +492,13 @@ export default function BoardDrill({
               onClick={showPlayed}
               disabled={bs.status === "shown"}
             >
-              👁 What happened
+              <Icon name="eye" size={17} /> What happened
             </button>
+            {onOpenDrill && (
+              <button className="primary evidence-practice" onClick={onOpenDrill}>
+                <Icon name="target" size={17} /> Practice this position
+              </button>
+            )}
           </div>
 
           <div className="drill-tag">
@@ -482,18 +507,21 @@ export default function BoardDrill({
               <button
                 className={`drill-chip ok${practiceStatus === "solved" ? " active" : ""}`}
                 onClick={() => onPractice("solved")}
+                aria-pressed={practiceStatus === "solved"}
               >
                 Fixed
               </button>
               <button
                 className={`drill-chip bad${practiceStatus === "missed" ? " active" : ""}`}
                 onClick={() => onPractice("missed")}
+                aria-pressed={practiceStatus === "missed"}
               >
                 Missed
               </button>
               <button
                 className={`drill-chip${practiceStatus === "later" ? " active" : ""}`}
                 onClick={() => onPractice("later")}
+                aria-pressed={practiceStatus === "later"}
               >
                 Later
               </button>
@@ -502,7 +530,7 @@ export default function BoardDrill({
 
           <div className="drill-nav">
             <button className="nav-btn" onClick={onPrev} disabled={selIdx <= 0}>
-              ← Prev
+              <Icon name="arrow-left" size={16} /> Previous
             </button>
             <span className="drill-counter">
               {selIdx + 1} <span className="drill-counter-sep">/</span> {queueStats.total}
@@ -512,7 +540,7 @@ export default function BoardDrill({
               onClick={onNext}
               disabled={selIdx >= queueStats.total - 1}
             >
-              Next →
+              Next <Icon name="arrow-right" size={16} />
             </button>
           </div>
           <details className="why-panel">
