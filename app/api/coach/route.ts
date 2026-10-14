@@ -28,6 +28,10 @@ function rateLimitKey(req: NextRequest): string {
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
+  // Drop expired buckets so the map doesn't grow with every IP ever seen.
+  if (buckets.size > 1000) {
+    for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
+  }
   const existing = buckets.get(key);
   if (!existing || existing.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
@@ -42,14 +46,23 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isObjectList(value: unknown, max: number): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= max &&
+    value.every((item) => typeof item === "object" && item !== null)
+  );
+}
+
 function validProfile(profile: Profile): boolean {
   return (
-    profile != null &&
+    typeof profile === "object" &&
+    profile !== null &&
     isFiniteNumber(profile.gamesAnalyzed) &&
     profile.gamesAnalyzed >= 0 &&
     isFiniteNumber(profile.totalBlunders) &&
-    Array.isArray(profile.blunders) &&
-    profile.blunders.length <= 500
+    isObjectList(profile.blunders, 500) &&
+    isObjectList(profile.worstHangs, 500)
   );
 }
 

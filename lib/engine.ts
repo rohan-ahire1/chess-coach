@@ -23,6 +23,9 @@ export class Engine {
   private lastScoreCp = 0; // from side-to-move perspective, latest info line
   private sideToMoveWhite = true;
   private configuredSkill = 20; // current bot Skill Level (0–20)
+  // The worker runs one search at a time and we track a single pending
+  // result, so every search waits for the previous one to finish.
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor() {
     this.worker = new Worker("/stockfish.js");
@@ -72,15 +75,17 @@ export class Engine {
     }
   }
 
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task, task);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   /** Evaluate a FEN at the given fixed depth. Returns White-perspective cp. */
   evaluate(fen: string, depth: number): Promise<EvalResult> {
-    return new Promise((resolve) => {
-      this.sideToMoveWhite = fen.split(" ")[1] !== "b";
-      this.lastScoreCp = 0;
-      this.resolveCurrent = resolve;
+    return this.enqueue(() => {
       this.worker.postMessage("ucinewgame");
-      this.worker.postMessage(`position fen ${fen}`);
-      this.worker.postMessage(`go depth ${depth}`);
+      return this.search(fen, `go depth ${depth}`);
     });
   }
 
@@ -93,8 +98,10 @@ export class Engine {
   async setStrength(elo: number): Promise<void> {
     await this.ready;
     const skill = Math.max(0, Math.min(20, Math.round((elo - 600) / 100)));
-    this.configuredSkill = skill;
-    this.worker.postMessage(`setoption name Skill Level value ${skill}`);
+    await this.enqueue(async () => {
+      this.configuredSkill = skill;
+      this.worker.postMessage(`setoption name Skill Level value ${skill}`);
+    });
   }
 
   /** How long the bot should "think", scaled by configured strength. */
@@ -104,22 +111,24 @@ export class Engine {
 
   /** Ask the bot for a move at its configured strength. */
   bestMove(fen: string, movetime = this.thinkTimeMs()): Promise<EvalResult> {
-    return this.go(fen, `go movetime ${movetime}`);
+    return this.enqueue(() => this.search(fen, `go movetime ${movetime}`));
   }
 
   /**
    * A full-strength suggestion for the "hint" button, independent of the bot's
    * configured (possibly weak) skill. Restores the bot skill afterwards.
    */
-  async suggest(fen: string, movetime = 600): Promise<EvalResult> {
-    this.worker.postMessage("setoption name Skill Level value 20");
-    const r = await this.go(fen, `go movetime ${movetime}`);
-    this.worker.postMessage(`setoption name Skill Level value ${this.configuredSkill}`);
-    return r;
+  suggest(fen: string, movetime = 600): Promise<EvalResult> {
+    return this.enqueue(async () => {
+      this.worker.postMessage("setoption name Skill Level value 20");
+      const r = await this.search(fen, `go movetime ${movetime}`);
+      this.worker.postMessage(`setoption name Skill Level value ${this.configuredSkill}`);
+      return r;
+    });
   }
 
-  /** Shared search runner: position + go command, resolves on bestmove. */
-  private go(fen: string, goCmd: string): Promise<EvalResult> {
+  /** Shared search runner: position + go command, resolves on bestmove. Call only from a queued task. */
+  private search(fen: string, goCmd: string): Promise<EvalResult> {
     return new Promise((resolve) => {
       this.sideToMoveWhite = fen.split(" ")[1] !== "b";
       this.lastScoreCp = 0;

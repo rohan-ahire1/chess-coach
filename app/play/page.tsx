@@ -57,6 +57,8 @@ export default function PlayPage() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [fen, setFen] = useState(START_FEN);
   const [playerColor, setPlayerColor] = useState<"w" | "b">("w");
+  // Read by timer callbacks, which can hold a render's stale playerColor.
+  const playerColorRef = useRef<"w" | "b">("w");
   const [orientation, setOrientation] = useState<"white" | "black">("white");
   const [thinking, setThinking] = useState(false);
   const [status, setStatus] = useState("");
@@ -95,8 +97,6 @@ export default function PlayPage() {
 
   useEffect(() => () => engineRef.current?.terminate(), []);
 
-  const botColor: "w" | "b" = playerColor === "w" ? "b" : "w";
-
   function addIncrement(color: "w" | "b") {
     const inc = TCS[tcKey].inc;
     if (!inc) return;
@@ -118,7 +118,7 @@ export default function PlayPage() {
     let msg = "Game over.";
     if (g.isCheckmate()) {
       const loser = g.turn(); // side to move has been mated
-      msg = loser === playerColor ? "Checkmate - you lose." : "Checkmate - you win.";
+      msg = loser === playerColorRef.current ? "Checkmate - you lose." : "Checkmate - you win.";
     } else if (g.isStalemate()) msg = "Stalemate — it's a draw.";
     else if (g.isThreefoldRepetition()) msg = "Draw by repetition.";
     else if (g.isInsufficientMaterial()) msg = "Draw — insufficient material.";
@@ -130,6 +130,8 @@ export default function PlayPage() {
   async function botMove(engineOverride?: Engine) {
     const eng = engineOverride ?? engineRef.current;
     if (!eng || endedRef.current) return;
+    const botColor = gameRef.current.turn();
+    if (botColor === playerColorRef.current) return; // e.g. a takeback landed first
     setThinking(true);
     setStatus("Bot is thinking…");
     const { bestMove } = await eng.bestMove(gameRef.current.fen());
@@ -182,6 +184,7 @@ export default function PlayPage() {
     const g = new Chess();
     gameRef.current = g;
     endedRef.current = false;
+    playerColorRef.current = color;
     setPlayerColor(color);
     setOrientation(color === "w" ? "white" : "black");
     setFen(g.fen());
@@ -218,7 +221,10 @@ export default function PlayPage() {
   async function showHint() {
     if (phase !== "playing" || thinking || gameRef.current.turn() !== playerColor) return;
     setStatus("Finding a hint…");
-    const { bestMove } = await engineRef.current!.suggest(gameRef.current.fen());
+    const fenAsked = gameRef.current.fen();
+    const { bestMove } = await engineRef.current!.suggest(fenAsked);
+    // The player may have moved (or taken back) while the hint was computing.
+    if (gameRef.current.fen() !== fenAsked) return;
     if (bestMove) setHint([bestMove.slice(0, 2), bestMove.slice(2, 4), HINT_COLOR]);
     setStatus("Your move.");
   }
@@ -226,7 +232,8 @@ export default function PlayPage() {
   function takeback() {
     if (thinking || phase === "setup") return;
     const g = gameRef.current;
-    g.undo(); // bot's reply
+    // If you just checkmated the bot, there's no reply to undo.
+    if (g.turn() === playerColorRef.current) g.undo(); // bot's reply
     g.undo(); // your move
     endedRef.current = false;
     setFen(g.fen());
