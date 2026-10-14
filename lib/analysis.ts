@@ -19,6 +19,8 @@ export const BLUNDER_THRESHOLD_CP = 250;
 export const MAX_PLIES = 80;
 /** Opening covers full-moves before this number. */
 export const OPENING_LAST_MOVE = 12;
+/** Endgame once this many queens, rooks, bishops and knights (or fewer) remain. */
+export const ENDGAME_MAX_PIECES = 6;
 
 const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
@@ -88,10 +90,20 @@ function fullMoveOf(fen: string): number {
   return Number.isNaN(n) ? 1 : n;
 }
 
-function phaseByMoveNumber(moveNumber: number): Phase {
-  if (moveNumber < 12) return "opening";
-  if (moveNumber <= 40) return "middlegame";
-  return "endgame";
+/** Queens, rooks, bishops and knights left on the board, both sides together. */
+function majorsAndMinors(fen: string): number {
+  return (fen.split(" ")[0].match(/[qrbnQRBN]/g) ?? []).length;
+}
+
+/**
+ * Endgame once few pieces are left (Lichess's rule: at most 6 majors and
+ * minors). Going by move number alone never reached the endgame, because
+ * analysis stops at MAX_PLIES (move 40).
+ */
+function phaseOf(fen: string, moveNumber: number): Phase {
+  if (majorsAndMinors(fen) <= ENDGAME_MAX_PIECES) return "endgame";
+  if (moveNumber < OPENING_LAST_MOVE) return "opening";
+  return "middlegame";
 }
 
 function clockToSeconds(raw: string): number | null {
@@ -335,7 +347,7 @@ export async function analyzeGame(
     if (trueLoss < BLUNDER_THRESHOLD_CP) continue; // no move did meaningfully better
 
     const moveNumber = fullMoveOf(ply.fenBefore);
-    const phase = phaseByMoveNumber(moveNumber);
+    const phase = phaseOf(ply.fenBefore, moveNumber);
 
     // Did this blunder hang material to the opponent's immediate next capture?
     const oppPly = plies[i + 1];

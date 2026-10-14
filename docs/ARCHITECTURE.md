@@ -78,12 +78,12 @@ The heavy search runs inside the Worker, so the main thread/UI never freezes. `p
    - Evaluate `fenBefore` and `fenAfter` (cached by FEN). `rawLoss = evalBefore - evalPlayed` (player perspective).
    - **Quick reject** if `rawLoss < BLUNDER_THRESHOLD_CP (250)`.
    - **Re-validate against the engine's best move** at the *same depth* and same horizon: apply `before.bestMove`, evaluate it, compute `trueLoss = bestCp - playedCp`. This removes horizon false-positives (forced/only/best moves in already-lost positions). If the player already played the engine best move, skip. Reject if `trueLoss < 250`.
-3. **Phase** by full-move number: `<12` opening, `≤40` middlegame, else endgame.
+3. **Phase**: endgame once at most `ENDGAME_MAX_PIECES = 6` queens, rooks, bishops and knights remain (both sides); otherwise full-move `<12` is opening and the rest middlegame.
 4. **Hanging-piece rule** (`hangNetLoss`): look at the opponent's *actual next move*; if it captures and nets material after any immediate recapture, the move hung that material. Depth-independent ground truth (known false positives: sacrifices, zwischenzug).
 5. **Classify** (`classifyMistake`) into `mistakeTags[]` and a primary `mistakeKind` by priority: `bad_trade → hanging_piece → time_pressure → missed_capture → king_safety → endgame_conversion → tactical_blind_spot`. Inputs: material lost, low-clock detection (`isLowClock` per time class), whether the best move was a capture, whether the reply gives check, phase.
 6. Emit a `BlunderExample` with `swingCp`, `bestMoveUci`, `bestCp`, clock data, and a `MistakeContext` (move number, phase, material balance, eval before/after, castle state, game URL).
 
-`mergeProfile` folds each game's result immutably into the running `Profile`: per-phase and per-kind counts, hanging-piece count, the full blunder list, and the worst hang per phase. Tunable constants (`DEFAULT_DEPTH=8`, `BLUNDER_THRESHOLD_CP=250`, `MAX_PLIES=80`, `OPENING_LAST_MOVE=12`) are the calibration knobs.
+`mergeProfile` folds each game's result immutably into the running `Profile`: per-phase and per-kind counts, hanging-piece count, the full blunder list, and the worst hang per phase. Tunable constants (`DEFAULT_DEPTH=8`, `BLUNDER_THRESHOLD_CP=250`, `MAX_PLIES=80`, `OPENING_LAST_MOVE=12`, `ENDGAME_MAX_PIECES=6`) are the calibration knobs.
 
 ## Weakness surfacing
 
