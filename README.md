@@ -1,98 +1,89 @@
 # Coachmate
 
-Type a Chess.com username, get a plain-English coaching report on your recurring
-mistakes, then drill the positions on a board or play a tunable bot. Analysis
-runs in your browser with Stockfish (WASM); the only server call sends an
-aggregate summary to an LLM for the coaching text. Free, mobile-first.
+**Type a Chess.com username and get a plain-English report on the mistakes you keep making, then practise those exact positions.**
 
-## Stack
+![Coachmate](public/images/chess-hero.png)
 
-- **Next.js (App Router)** on Vercel
-- **Stockfish** single-threaded build vendored at `public/stockfish.js`; it runs
-  in a Web Worker, with no `SharedArrayBuffer` or COOP/COEP headers required
-- **chess.js** for PGN replay, phase detection, and the hanging-piece rule
-- **OpenRouter** for coaching through `app/api/coach/route.ts`; the key never
-  reaches the browser
+Coachmate pulls your recent Chess.com games, runs Stockfish on them right in your browser, finds the blunders that repeat, and explains them in plain English. You can then replay each flagged position on a board and try to find a better move, or play a bot with adjustable strength. No account, no database, mobile-first.
 
-## How It Works
+## Features
 
-1. **Fetch** - walks the player's Chess.com monthly archives newest-first,
-   filters by time control, and collects up to 15 games. (`lib/chesscom.ts`)
-2. **Analyze** - Stockfish evaluates each candidate position at a low fixed
-   depth; a move is a blunder if a same-depth best-move comparison shows a loss
-   of at least 250cp from the mover's perspective. (`lib/engine.ts`,
-   `lib/analysis.ts`)
-3. **Classify** - blunders bucket by phase and concrete mistake type; hanging
-   pieces are also flagged by a depth-independent next-capture rule.
-4. **Pattern-match** - `lib/patterns.ts` finds recurring context patterns such
-   as mistake type by phase, material balance, or castling state.
-5. **Coach** - aggregate counts, representative examples, and recurring
-   patterns go to the LLM. Full games are never sent.
+- **Weakness report from real games.** Analyzes 5 to 30 recent games (15 recommended) for a chosen time control and flags blunders by game phase (opening, middlegame, endgame) and mistake type: hanging piece, bad trade, missed capture, king safety, time pressure, endgame conversion, tactical blind spot.
+- **Recurring patterns.** Finds mistakes that cluster in the same context, such as a mistake type tied to castling state, phase or material balance.
+- **Coaching in plain English.** An LLM turns the aggregate numbers into a short coaching paragraph. Full games are never sent off the device.
+- **Evidence you can check.** Every flagged move is listed with filters by mistake type and phase, and shows the move played and the engine's best move.
+- **"Find a better move" drills.** Practise each blunder on an interactive board; your attempt is scored by Stockfish and tracked as solved, missed or saved for later.
+- **Play vs bot.** Adjustable strength (Elo-style levels drive Stockfish's skill setting), colour choice, clocks, hints, takebacks and resign.
+- **Demo report** for trying the app without a username.
+- **Works without an API key.** Analysis, evidence, drills and play mode all run without the LLM; only the coaching paragraph needs it.
 
-## Setup
+## How it works
+
+Almost all the work happens in the browser. The only server code is one Edge route that keeps the API key off the client.
+
+1. **Fetch** (`lib/chesscom.ts`): walks the player's Chess.com monthly archives newest-first using the public API, filters by time control, and collects the requested number of games.
+2. **Analyze** (`lib/engine.ts`, `lib/analysis.ts`): replays each game with chess.js and evaluates positions with Stockfish (WASM) in a Web Worker. A move counts as a blunder if it loses at least 250 centipawns against a same-depth best-move check.
+3. **Classify**: each blunder is bucketed by phase and mistake type. Hanging pieces are also caught by a depth-independent next-capture rule. Endgames are detected by material, not move number.
+4. **Pattern-match** (`lib/patterns.ts`): scores mistake-type × context combinations by how concentrated and over-represented they are, and keeps the recurring ones.
+5. **Coach** (`app/api/coach/route.ts`): sends only aggregate counts, a few example moves and the recurring patterns to an LLM via OpenRouter. The route validates input, caps request size (80 KB) and rate-limits per IP.
+
+Partial results are saved to `sessionStorage` after every game, so an interrupted run still shows a labelled partial report.
+
+A deeper walkthrough with a data-flow diagram is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Tech stack
+
+- **Next.js 14** (App Router) + React 18 + TypeScript (strict)
+- **Stockfish** single-threaded WASM build, vendored at `public/stockfish.js` and run in a Web Worker (no `SharedArrayBuffer` or COOP/COEP headers needed)
+- **chess.js** for PGN replay, legal moves, phase and material logic
+- **react-chessboard** for the board UI
+- **OpenRouter** for coaching text (default model `deepseek/deepseek-v4-flash`, set by `COACH_MODEL`)
+- Plain CSS, built for Vercel
+
+## Run locally
+
+Requires Node.js 18.17 or newer.
 
 ```bash
 npm install
-cp .env.example .env.local   # add your OPENROUTER_API_KEY
+cp .env.example .env.local   # add your OPENROUTER_API_KEY (optional)
 npm run dev
 ```
 
-Open http://localhost:3000. Without an API key the analysis, evidence list,
-board drills, and play-vs-bot mode still work; only the coaching paragraph is
-unavailable.
+Open http://localhost:3000.
+
+Other scripts: `npm run build`, `npm run start`, `npm run lint`.
+
+### Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `OPENROUTER_API_KEY` | For coaching text only | Server-side key for the coach route; never reaches the browser |
+| `COACH_MODEL` | No | OpenRouter model, defaults to `deepseek/deepseek-v4-flash` |
+| `NEXT_PUBLIC_SITE_URL` | No | Absolute URL for social preview metadata |
 
 ## Deploy
 
-Push the repo, import to Vercel, and set:
+Import the repo into Vercel and set the environment variables above.
 
-- `OPENROUTER_API_KEY` - required for coaching text
-- `COACH_MODEL` - optional, defaults to `deepseek/deepseek-v4-flash`
-- `NEXT_PUBLIC_SITE_URL` - optional, used for absolute social metadata URLs
+## Tuning
 
-## Calibration
-
-Current launch constants:
-
-- `DEFAULT_DEPTH=8`
-- `BLUNDER_THRESHOLD_CP=250`
-- `MAX_PLIES=80`
-- `OPENING_LAST_MOVE=12`
-
-Code calibration status: depth was lowered from 10 to 8 for launch timing, and
-the production build is the local verification gate. Physical-device calibration
-still must be completed before public launch: run 15 real games on a mid-range
-phone and a desktop, record per-game and total wall-clock time, and spot-check
-10-15 flagged moves of at least 250cp against the original games.
-
-Target: 15 games in about 3-4 minutes on a mid-range phone with no common
-false-positive blunders in the spot check. Record the measured phone and desktop
-numbers here after that run:
-
-| Device | Games | Depth | Total Time | Avg/Game | Spot Check |
-|---|---:|---:|---:|---:|---|
-| Mid-range phone | 15 | 8 | pending | pending | pending |
-| Desktop browser | 15 | 8 | pending | pending | pending |
-
-## Tunable Constants (`lib/analysis.ts`)
+Analysis constants live in `lib/analysis.ts`:
 
 | Constant | Default | Meaning |
 |---|---:|---|
-| `DEFAULT_DEPTH` | 8 | Stockfish search depth |
-| `BLUNDER_THRESHOLD_CP` | 250 | min eval drop to count as a blunder |
-| `MAX_PLIES` | 80 | cap on plies analyzed per game |
-| `OPENING_LAST_MOVE` | 12 | full-moves before this value are opening |
+| `DEFAULT_DEPTH` | 8 | Stockfish search depth (kept low so 15 games finish in minutes on a phone) |
+| `BLUNDER_THRESHOLD_CP` | 250 | Minimum eval drop to count as a blunder |
+| `MAX_PLIES` | 80 | Cap on plies analyzed per game |
+| `OPENING_LAST_MOVE` | 12 | Full moves before this count as opening |
 
-## Scope
+## Known limitations
 
-v1 is deliberately small: no accounts, no database, no payments, Chess.com only.
-See `plans/launch.plan.md` for the launch checklist.
+- Chess.com only for now.
+- The hanging-piece rule is a simple next-capture check, so intended sacrifices and in-between moves can be flagged.
+- A full run can keep a phone's CPU busy for several minutes. Timing on real mid-range phones has not been measured yet.
+- The coach route's rate limit is in memory per Edge instance; sustained traffic would need a shared store.
 
-## Known Limitations
+## Credits
 
-- The hanging-piece rule is a simple next-capture heuristic; intended sacrifices
-  and zwischenzug can produce false positives.
-- A full run can pin the phone's CPU for several minutes. Partial results are
-  saved per game in `sessionStorage`, so an interrupted run still shows a
-  labeled report.
-- The `/api/coach` route has a small in-memory edge rate limit and request size
-  cap. For sustained traffic across many edge isolates, use a shared store.
+Stockfish is © the Stockfish developers and released under the GNU GPL v3; the vendored build keeps its original license header.
