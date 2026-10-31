@@ -1,5 +1,4 @@
-import { Chess } from "chess.js";
-import type { BlunderExample, MistakeKind, Phase, Profile } from "./types";
+import type { Flagged, MistakeKind, Phase, Profile } from "./types";
 
 export const PHASE_LABELS: Record<Phase, string> = {
   opening: "Opening",
@@ -18,131 +17,58 @@ export const MISTAKE_LABELS: Record<MistakeKind, string> = {
 };
 
 const MISTAKE_TITLES: Record<MistakeKind, string> = {
-  hanging_piece: "Your biggest leak: hanging pieces.",
-  bad_trade: "Your biggest leak: bad trades.",
-  time_pressure: "Your biggest leak: low-clock decisions.",
-  missed_capture: "Your biggest leak: missed forcing captures.",
-  king_safety: "Your biggest leak: king safety.",
-  endgame_conversion: "Your biggest leak: endgame conversion.",
-  tactical_blind_spot: "Your biggest leak: tactical blind spots.",
+  hanging_piece: "You are leaving pieces loose.",
+  bad_trade: "Your trades are costing you material.",
+  time_pressure: "Your game falls apart when the clock runs low.",
+  missed_capture: "You are walking past captures.",
+  king_safety: "Your king is getting caught out.",
+  endgame_conversion: "Good positions are slipping away in the endgame.",
+  tactical_blind_spot: "One forcing move keeps catching you.",
 };
 
 const MISTAKE_DRILLS: Record<MistakeKind, string> = {
-  hanging_piece: "Before you move, name every loose piece for both sides.",
-  bad_trade: "Before every capture, count the final material after the recapture.",
-  time_pressure: "At 30 seconds, switch to a simple checklist: checks, captures, threats, loose pieces.",
-  missed_capture: "For every candidate move, inspect forcing captures before quiet moves.",
-  king_safety: "Before pushing a pawn near your king, check every opponent check.",
-  endgame_conversion: "In endgames, ask whether your move improves king activity or creates a passer.",
-  tactical_blind_spot: "Use a 10-second scan: checks, captures, threats, then undefended pieces.",
+  hanging_piece: "Before you move, name every loose piece on the board, yours and theirs.",
+  bad_trade: "Before every capture, count the material after the last recapture.",
+  time_pressure: "At 30 seconds, run one check: checks, captures, threats, loose pieces.",
+  missed_capture: "Look at every capture on the board before you look at quiet moves.",
+  king_safety: "Before you push a pawn near your king, list every check your opponent gets.",
+  endgame_conversion: "In endgames, ask whether your move helps your king or makes a passed pawn.",
+  tactical_blind_spot: "Take ten seconds each move for checks, captures, threats, then loose pieces.",
 };
 
 const MISTAKE_SUBS: Record<MistakeKind, string> = {
-  hanging_piece: "Your losses cluster around pieces that could be taken immediately.",
-  bad_trade: "You often start exchanges where the final recapture favors the opponent.",
-  time_pressure: "Your flagged moves happen with very little time left on the clock.",
-  missed_capture: "The stronger move was usually a forcing capture that your move skipped.",
-  king_safety: "The damage often comes when the next move hits your king.",
-  endgame_conversion: "Your endgames are losing value after the position simplifies.",
-  tactical_blind_spot: "The pattern is tactical rather than phase-specific: one forcing move changes the position.",
+  hanging_piece: "Most of your big drops come from a piece that could be taken on the very next move.",
+  bad_trade: "You start exchanges where the last recapture goes your opponent's way.",
+  time_pressure: "Your worst moves come with very little left on the clock.",
+  missed_capture: "The stronger move was usually a capture you looked past.",
+  king_safety: "The damage tends to come when the next move hits your king.",
+  endgame_conversion: "You lose ground after the position simplifies.",
+  tactical_blind_spot: "The moves look fine until one forcing reply changes everything.",
 };
-
-export function blunderId(b: BlunderExample): string {
-  return `${b.gameIndex}:${b.moveNumber}:${b.move}:${b.fen}`;
-}
-
-export function formatClock(sec: number | null): string {
-  if (sec == null) return "unknown";
-  const safe = Math.max(0, sec);
-  const mins = Math.floor(safe / 60);
-  const seconds = Math.floor(safe % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${mins}:${seconds}`;
-}
-
-export function bestMoveSan(b: BlunderExample): string | null {
-  if (!b.bestMoveUci) return null;
-  try {
-    const c = new Chess(b.fen);
-    const m = c.move({
-      from: b.bestMoveUci.slice(0, 2),
-      to: b.bestMoveUci.slice(2, 4),
-      promotion: (b.bestMoveUci.slice(4, 5) || undefined) as any,
-    });
-    return m?.san ?? b.bestMoveUci;
-  } catch {
-    return b.bestMoveUci;
-  }
-}
-
-export function mistakeProofLabel(b: BlunderExample): string {
-  if (b.isHang || b.mistakeKind === "bad_trade") return "Concrete material loss";
-  if (b.clockAfterSec != null && b.mistakeKind === "time_pressure") return "Clock-backed pattern";
-  return "Engine comparison";
-}
-
-export function whyFlagged(b: BlunderExample): string {
-  if (b.mistakeKind === "bad_trade") {
-    return `The exchange sequence lost about ${b.materialLost} pawns of material after the reply.`;
-  }
-  if (b.isHang) {
-    return `The opponent's next capture won about ${b.materialLost} pawns of material.`;
-  }
-  if (b.mistakeKind === "time_pressure" && b.clockAfterSec != null) {
-    return `Chess.com clock data shows ${formatClock(b.clockAfterSec)} left after the move.`;
-  }
-  if (b.mistakeKind === "missed_capture") {
-    return "The stronger move was a forcing capture; your move let the chance pass.";
-  }
-  if (b.mistakeKind === "king_safety") {
-    return "The next sequence exposed your king, and the engine swing confirms the damage.";
-  }
-  if (b.mistakeKind === "endgame_conversion") {
-    return "In a simplified position, the engine found a much stronger conversion path.";
-  }
-  return "Same-depth engine comparison found a stronger move by a clear margin.";
-}
 
 export interface Diagnosis {
   kind: MistakeKind;
   title: string;
   summary: string;
-  confidence: "High" | "Medium" | "Early signal";
-  confidenceDetail: string;
   drill: string;
-  examples: BlunderExample[];
+  count: number;
+  examples: Flagged[];
 }
 
-export function buildDiagnosis(profile: Profile): Diagnosis {
-  const counts = profile.mistakesByKind ?? ({} as Record<MistakeKind, number>);
+export function buildDiagnosis(profile: Profile): Diagnosis | null {
+  if (profile.flagged.length === 0) return null;
   const kinds = Object.keys(MISTAKE_LABELS) as MistakeKind[];
-  const topKind = kinds.reduce((best, kind) => {
-    const bestN = counts[best] ?? 0;
-    const nextN = counts[kind] ?? 0;
-    return nextN > bestN ? kind : best;
-  }, "tactical_blind_spot" as MistakeKind);
-  const topCount = counts[topKind] ?? 0;
-  const share = profile.totalBlunders > 0 ? topCount / profile.totalBlunders : 0;
-  const confidence =
-    profile.gamesAnalyzed >= 10 && topCount >= 5 && share >= 0.4
-      ? "High"
-      : topCount >= 3
-      ? "Medium"
-      : "Early signal";
-  const examples = [...profile.blunders]
-    .filter((b) => b.mistakeKind === topKind || b.mistakeTags?.includes(topKind))
-    .sort((a, b) => b.swingCp - a.swingCp)
-    .slice(0, 3);
-
+  const topKind = kinds.reduce(
+    (best, kind) => (profile.mistakesByKind[kind] > profile.mistakesByKind[best] ? kind : best),
+    "tactical_blind_spot" as MistakeKind
+  );
+  const count = profile.mistakesByKind[topKind];
   return {
     kind: topKind,
     title: MISTAKE_TITLES[topKind],
-    summary: `${MISTAKE_SUBS[topKind]} ${topCount} of ${profile.totalBlunders} flagged positions point here.`,
-    confidence,
-    confidenceDetail: `${topCount} matching positions across ${profile.gamesAnalyzed} games`,
+    summary: `${MISTAKE_SUBS[topKind]} ${count} of your ${profile.flagged.length} costly moves point here.`,
     drill: MISTAKE_DRILLS[topKind],
-    examples,
+    count,
+    examples: profile.flagged.filter((f) => f.flag.kind === topKind).slice(0, 3),
   };
 }
-

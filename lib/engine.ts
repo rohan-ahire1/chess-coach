@@ -1,144 +1,176 @@
 /**
- * Thin client-side wrapper around the vendored single-threaded Stockfish
- * worker (public/stockfish.js). The heavy search runs inside the Web Worker,
- * so the main thread / UI never freezes. We speak UCI and parse eval output.
+ * Client wrapper around the vendored single-threaded Stockfish 19 lite worker.
+ * The search runs in a Web Worker, so the page never freezes. Jobs run one at a
+ * time from a queue: UCI has a single search, and overlapping `go` commands
+ * would hand one caller's result to another.
  *
- * Scores are returned from White's perspective, in centipawns. Mate scores are
- * clamped to a large finite value so downstream swing math never overflows.
+ * Scores come back from White's side.
  */
 
-const MATE_CP = 10000;
-
 export interface EvalResult {
-  /** Centipawns from White's perspective. */
-  cp: number;
-  /** Engine's best move in UCI (e.g. "g1f3"), or null. */
+  cp: number | null;
+  mate: number | null;
   bestMove: string | null;
+  /** Principal variation in UCI. */
+  pv: string[];
 }
 
-export class Engine {
+/** What the review needs from an engine, so a script can run it outside a browser. */
+export interface Analyzer {
+  newGame(): void;
+  analyze(fen: string, depth: number): Promise<EvalResult>;
+}
+
+/** Parses UCI output into a result. Shared with the sample builder. */
+export class UciReader {
+  private cp: number | null = 0;
+  private mate: number | null = null;
+  private pv: string[] = [];
+
+  reset() {
+    this.cp = 0;
+    this.mate = null;
+    this.pv = [];
+  }
+
+  /** Feed one line. Returns the result once `bestmove` arrives. */
+  read(line: string, whiteToMove: boolean): EvalResult | null {
+    if (line.startsWith("info") && line.includes(" score ")) {
+      if (/ multipv (?!1 )/.test(line) || line.includes(" lowerbound") || line.includes(" upperbound")) return null;
+      const cp = / score cp (-?\d+)/.exec(line);
+      const mate = / score mate (-?\d+)/.exec(line);
+      if (cp) {
+        this.cp = parseInt(cp[1], 10);
+        this.mate = null;
+      } else if (mate) {
+        this.mate = parseInt(mate[1], 10);
+        this.cp = null;
+      }
+      const pv = / pv (.+)$/.exec(line);
+      if (pv) this.pv = pv[1].trim().split(/\s+/);
+      return null;
+    }
+    if (!line.startsWith("bestmove")) return null;
+    const token = line.split(/\s+/)[1];
+    const sign = whiteToMove ? 1 : -1;
+    return {
+      cp: this.cp == null ? null : this.cp * sign,
+      mate: this.mate == null ? null : this.mate * sign,
+      bestMove: token && token !== "(none)" ? token : null,
+      pv: this.pv,
+    };
+  }
+}
+
+const WORKER_URL = "/engine/stockfish-19-lite-single.js";
+
+export interface BotLevel {
+  level: number;
+  name: string;
+  skill: number;
+  depth: number;
+  movetime: number;
+  /** Chance of playing a random legal move instead of the engine's choice. */
+  slip: number;
+}
+
+export const BOT_LEVELS: BotLevel[] = [
+  { level: 1, name: "New to the game", skill: 0, depth: 1, movetime: 60, slip: 0.34 },
+  { level: 2, name: "Casual", skill: 0, depth: 2, movetime: 80, slip: 0.22 },
+  { level: 3, name: "Improving", skill: 1, depth: 3, movetime: 120, slip: 0.14 },
+  { level: 4, name: "Club player", skill: 3, depth: 4, movetime: 180, slip: 0.08 },
+  { level: 5, name: "Strong club", skill: 6, depth: 6, movetime: 260, slip: 0.04 },
+  { level: 6, name: "Expert", skill: 10, depth: 9, movetime: 360, slip: 0 },
+  { level: 7, name: "Master", skill: 15, depth: 13, movetime: 500, slip: 0 },
+  { level: 8, name: "Full strength", skill: 20, depth: 20, movetime: 1000, slip: 0 },
+];
+
+export class Engine implements Analyzer {
   private worker: Worker;
   private ready: Promise<void>;
-  private resolveCurrent: ((r: EvalResult) => void) | null = null;
-  private lastScoreCp = 0; // from side-to-move perspective, latest info line
-  private sideToMoveWhite = true;
-  private configuredSkill = 20; // current bot Skill Level (0–20)
-  // The worker runs one search at a time and we track a single pending
-  // result, so every search waits for the previous one to finish.
-  private queue: Promise<unknown> = Promise.resolve();
+  private tail: Promise<unknown> = Promise.resolve();
+  private reader = new UciReader();
+  private whiteToMove = true;
+  private settle: ((r: EvalResult) => void) | null = null;
+  private dead = false;
 
   constructor() {
-    this.worker = new Worker("/stockfish.js");
+    this.worker = new Worker(WORKER_URL);
+    this.worker.addEventListener("error", () => this.fail());
     this.ready = new Promise((resolve) => {
-      const onMsg = (e: MessageEvent) => {
-        const line = String(e.data);
-        if (line.includes("uciok") || line.includes("readyok")) {
-          this.worker.removeEventListener("message", onMsg);
+      const onReady = (e: MessageEvent) => {
+        if (String(e.data).startsWith("readyok")) {
+          this.worker.removeEventListener("message", onReady);
           resolve();
         }
       };
-      this.worker.addEventListener("message", onMsg);
-      this.worker.postMessage("uci");
-      this.worker.postMessage("isready");
+      this.worker.addEventListener("message", onReady);
     });
-
     this.worker.addEventListener("message", (e: MessageEvent) => this.onMessage(String(e.data)));
+    this.worker.postMessage("uci");
+    this.worker.postMessage("setoption name Hash value 32");
+    this.worker.postMessage("isready");
   }
 
-  async init(): Promise<void> {
-    await this.ready;
+  init(): Promise<void> {
+    return this.ready;
   }
 
   private onMessage(line: string) {
-    // Track the latest score from "info ... score cp X" / "score mate Y".
-    const scoreIdx = line.indexOf("score ");
-    if (scoreIdx !== -1) {
-      const rest = line.slice(scoreIdx + 6).trim().split(/\s+/);
-      const kind = rest[0];
-      const val = parseInt(rest[1], 10);
-      if (kind === "cp" && !Number.isNaN(val)) {
-        this.lastScoreCp = val;
-      } else if (kind === "mate" && !Number.isNaN(val)) {
-        this.lastScoreCp = val > 0 ? MATE_CP - val : -MATE_CP - val;
-      }
-    }
-
-    if (line.startsWith("bestmove") && this.resolveCurrent) {
-      // Convert side-to-move score to White's perspective.
-      const whiteCp = this.sideToMoveWhite ? this.lastScoreCp : -this.lastScoreCp;
-      const clamped = Math.max(-MATE_CP, Math.min(MATE_CP, whiteCp));
-      const token = line.split(/\s+/)[1];
-      const bestMove = token && token !== "(none)" ? token : null;
-      const resolve = this.resolveCurrent;
-      this.resolveCurrent = null;
-      resolve({ cp: clamped, bestMove });
-    }
+    if (!this.settle) return;
+    const result = this.reader.read(line, this.whiteToMove);
+    if (!result) return;
+    const settle = this.settle;
+    this.settle = null;
+    settle(result);
   }
 
-  private enqueue<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(task, task);
-    this.queue = run.catch(() => {});
-    return run;
+  private fail() {
+    const settle = this.settle;
+    this.settle = null;
+    settle?.({ cp: 0, mate: null, bestMove: null, pv: [] });
   }
 
-  /** Evaluate a FEN at the given fixed depth. Returns White-perspective cp. */
-  evaluate(fen: string, depth: number): Promise<EvalResult> {
-    return this.enqueue(() => {
-      this.worker.postMessage("ucinewgame");
-      return this.search(fen, `go depth ${depth}`);
-    });
-  }
-
-  /**
-   * Tune bot strength from an approximate Elo. We drive Stockfish's "Skill
-   * Level" (0–20), which is universally supported, rather than UCI_Elo (whose
-   * support varies by build and which can't go below ~1320). Elo 600 → skill 0,
-   * 2600 → skill 20, clamped.
-   */
-  async setStrength(elo: number): Promise<void> {
-    await this.ready;
-    const skill = Math.max(0, Math.min(20, Math.round((elo - 600) / 100)));
-    await this.enqueue(async () => {
-      this.configuredSkill = skill;
+  private run(fen: string, go: string, skill: number): Promise<EvalResult> {
+    const job = this.tail.then(async () => {
+      if (this.dead) return { cp: 0, mate: null, bestMove: null, pv: [] };
+      await this.ready;
       this.worker.postMessage(`setoption name Skill Level value ${skill}`);
+      this.whiteToMove = fen.split(" ")[1] !== "b";
+      this.reader.reset();
+      return new Promise<EvalResult>((resolve) => {
+        this.settle = resolve;
+        this.worker.postMessage(`position fen ${fen}`);
+        this.worker.postMessage(go);
+      });
     });
+    this.tail = job.catch(() => undefined);
+    return job;
   }
 
-  /** How long the bot should "think", scaled by configured strength. */
-  thinkTimeMs(): number {
-    return 250 + this.configuredSkill * 25; // 250ms (weak) → 750ms (max)
+  /** Clears search history. Call once per game, not once per position. */
+  newGame() {
+    this.tail = this.tail.then(() => this.worker.postMessage("ucinewgame"));
   }
 
-  /** Ask the bot for a move at its configured strength. */
-  bestMove(fen: string, movetime = this.thinkTimeMs()): Promise<EvalResult> {
-    return this.enqueue(() => this.search(fen, `go movetime ${movetime}`));
+  /** Full-strength analysis at a fixed depth. */
+  analyze(fen: string, depth: number): Promise<EvalResult> {
+    return this.run(fen, `go depth ${depth}`, 20);
   }
 
-  /**
-   * A full-strength suggestion for the "hint" button, independent of the bot's
-   * configured (possibly weak) skill. Restores the bot skill afterwards.
-   */
-  suggest(fen: string, movetime = 600): Promise<EvalResult> {
-    return this.enqueue(async () => {
-      this.worker.postMessage("setoption name Skill Level value 20");
-      const r = await this.search(fen, `go movetime ${movetime}`);
-      this.worker.postMessage(`setoption name Skill Level value ${this.configuredSkill}`);
-      return r;
-    });
+  /** Full-strength answer inside a time budget, for hints and drill checks. */
+  think(fen: string, movetime: number): Promise<EvalResult> {
+    return this.run(fen, `go movetime ${movetime}`, 20);
   }
 
-  /** Shared search runner: position + go command, resolves on bestmove. Call only from a queued task. */
-  private search(fen: string, goCmd: string): Promise<EvalResult> {
-    return new Promise((resolve) => {
-      this.sideToMoveWhite = fen.split(" ")[1] !== "b";
-      this.lastScoreCp = 0;
-      this.resolveCurrent = resolve;
-      this.worker.postMessage(`position fen ${fen}`);
-      this.worker.postMessage(goCmd);
-    });
+  /** The bot's reply at a level. */
+  botMove(fen: string, level: BotLevel): Promise<EvalResult> {
+    return this.run(fen, `go depth ${level.depth} movetime ${level.movetime}`, level.skill);
   }
 
   terminate() {
+    this.dead = true;
+    this.fail();
     this.worker.terminate();
   }
 }

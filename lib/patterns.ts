@@ -1,19 +1,7 @@
-import type { BlunderExample, PatternPayload, Profile } from "./types";
+import type { Flagged, PlayerPattern, Profile } from "./types";
 
-type PatternField = "castle_side" | "game_phase" | "material_balance";
+type PatternField = "castleSide" | "phase" | "materialBalance";
 type PatternValue = string | null;
-
-interface CandidatePattern {
-  field: PatternField;
-  value: PatternValue;
-  category: string;
-  count: number;
-  avgLossPawns: number;
-  concentration: number;
-  overrepresentation: number;
-  leverage: number;
-  examples: BlunderExample[];
-}
 
 const MIN_PATTERN_COUNT = 2;
 const MIN_OVERREPRESENTATION = 1.25;
@@ -22,118 +10,67 @@ const CATEGORY_LABELS: Record<string, string> = {
   hanging_piece: "hanging pieces",
   bad_trade: "bad trades",
   time_pressure: "low-clock mistakes",
-  missed_capture: "missed forcing captures",
+  missed_capture: "missed captures",
   king_safety: "king-safety mistakes",
   endgame_conversion: "endgame conversion mistakes",
   tactical_blind_spot: "tactical blind spots",
 };
 
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
-}
-
-function contextValue(b: BlunderExample, field: PatternField): PatternValue {
-  return b.context[field] ?? null;
+function valueOf(f: Flagged, field: PatternField): PatternValue {
+  return field === "phase" ? f.phase : f.flag[field];
 }
 
 function fieldLabel(field: PatternField, value: PatternValue): string {
-  if (field === "castle_side") {
-    if (value === "kingside") return "after kingside castling";
-    if (value === "queenside") return "after queenside castling";
-    return "before castling or in games where castling was not reached";
+  if (field === "castleSide") {
+    if (value === "kingside") return "after castling kingside";
+    if (value === "queenside") return "after castling queenside";
+    return "before castling";
   }
-  if (field === "game_phase") return `in the ${String(value)}`;
+  if (field === "phase") return `in the ${String(value)}`;
   if (value === "ahead") return "while ahead in material";
   if (value === "behind") return "while behind in material";
-  return "in equal-material positions";
+  return "with material level";
 }
 
-function noteForExample(b: BlunderExample): string {
-  const loss = round1(b.swingCp / 100);
-  const castle =
-    b.context.castle_side && b.context.moves_since_castle != null
-      ? ` ${b.context.moves_since_castle} moves after ${b.context.castle_side} castle`
-      : "";
-  return `${CATEGORY_LABELS[b.context.category] ?? b.context.category} for ${loss} pawns${castle}`;
-}
+/**
+ * Finds mistake kinds that cluster in one context: a kind that happens more in
+ * that context than the player's mistakes do overall.
+ */
+export function findPatterns(profile: Profile, limit = 3): PlayerPattern[] {
+  const flagged = profile.flagged;
+  if (flagged.length === 0) return [];
 
-function buildCandidates(blunders: BlunderExample[]): CandidatePattern[] {
-  const total = blunders.length;
-  if (total === 0) return [];
+  const byKind = new Map<string, Flagged[]>();
+  for (const f of flagged) byKind.set(f.flag.kind, [...(byKind.get(f.flag.kind) ?? []), f]);
 
-  const categories = new Map<string, BlunderExample[]>();
-  for (const b of blunders) {
-    const arr = categories.get(b.context.category) ?? [];
-    arr.push(b);
-    categories.set(b.context.category, arr);
-  }
+  const candidates: (PlayerPattern & { leverage: number })[] = [];
+  for (const field of ["castleSide", "phase", "materialBalance"] as PatternField[]) {
+    const overall = new Map<PatternValue, number>();
+    for (const f of flagged) overall.set(valueOf(f, field), (overall.get(valueOf(f, field)) ?? 0) + 1);
 
-  const fields: PatternField[] = ["castle_side", "game_phase", "material_balance"];
-  const candidates: CandidatePattern[] = [];
-
-  for (const field of fields) {
-    const globalByValue = new Map<PatternValue, number>();
-    for (const b of blunders) {
-      const value = contextValue(b, field);
-      globalByValue.set(value, (globalByValue.get(value) ?? 0) + 1);
-    }
-
-    for (const [category, categoryBlunders] of categories) {
-      const categoryTotal = categoryBlunders.length;
-      const byValue = new Map<PatternValue, BlunderExample[]>();
-      for (const b of categoryBlunders) {
-        const value = contextValue(b, field);
-        const arr = byValue.get(value) ?? [];
-        arr.push(b);
-        byValue.set(value, arr);
-      }
+    for (const [kind, kindFlags] of byKind) {
+      const byValue = new Map<PatternValue, Flagged[]>();
+      for (const f of kindFlags) byValue.set(valueOf(f, field), [...(byValue.get(valueOf(f, field)) ?? []), f]);
 
       for (const [value, examples] of byValue) {
-        const count = examples.length;
-        if (count < MIN_PATTERN_COUNT) continue;
-
-        const concentration = count / categoryTotal;
-        const baseline = (globalByValue.get(value) ?? 0) / total;
-        if (baseline <= 0) continue;
+        if (examples.length < MIN_PATTERN_COUNT) continue;
+        const concentration = examples.length / kindFlags.length;
+        const baseline = (overall.get(value) ?? 0) / flagged.length;
         const overrepresentation = concentration / baseline;
         if (overrepresentation < MIN_OVERREPRESENTATION) continue;
-
-        const avgLossPawns = examples.reduce((sum, b) => sum + b.swingCp / 100, 0) / count;
-        const leverage = count * avgLossPawns * concentration * Math.min(overrepresentation, 3);
+        const avgDrop = examples.reduce((sum, f) => sum + f.drop, 0) / examples.length;
         candidates.push({
-          field,
-          value,
-          category,
-          count,
-          avgLossPawns,
-          concentration,
-          overrepresentation,
-          leverage,
-          examples: [...examples].sort((a, b) => b.swingCp - a.swingCp),
+          description: `${CATEGORY_LABELS[kind] ?? kind} ${fieldLabel(field, value)}`,
+          count: examples.length,
+          avgDrop: Math.round(avgDrop),
+          leverage: examples.length * avgDrop * concentration * Math.min(overrepresentation, 3),
         });
       }
     }
   }
 
-  return candidates.sort((a, b) => b.leverage - a.leverage);
-}
-
-export function buildPatternPayload(profile: Profile): PatternPayload {
-  const enriched = profile.blunders.filter((b) => b.context);
-  const top = buildCandidates(enriched).slice(0, 3);
-
-  return {
-    rating: profile.rating,
-    games_analyzed: profile.gamesAnalyzed,
-    top_patterns: top.map((p) => ({
-      description: `${CATEGORY_LABELS[p.category] ?? p.category} ${fieldLabel(p.field, p.value)}`,
-      count: p.count,
-      avg_eval_loss: round1(p.avgLossPawns),
-      examples: p.examples.slice(0, 2).map((b) => ({
-        game_url: b.context.game_url,
-        move: b.context.move_number,
-        note: noteForExample(b),
-      })),
-    })),
-  };
+  return candidates
+    .sort((a, b) => b.leverage - a.leverage)
+    .slice(0, limit)
+    .map(({ description, count, avgDrop }) => ({ description, count, avgDrop }));
 }

@@ -1,6 +1,12 @@
-export type TimeControl = "blitz" | "rapid" | "all";
-
+export type Platform = "chesscom" | "lichess";
+export type GameFilter = "standard" | "rapid" | "blitz" | "bullet";
+export type Color = "w" | "b";
 export type Phase = "opening" | "middlegame" | "endgame";
+export type Judgement = "inaccuracy" | "mistake" | "blunder";
+export type Outcome = "win" | "loss" | "draw";
+export type PracticeStatus = "solved" | "missed" | "later";
+export type MaterialBalance = "ahead" | "equal" | "behind";
+export type CastleSide = "kingside" | "queenside" | null;
 
 export type MistakeKind =
   | "hanging_piece"
@@ -11,118 +17,182 @@ export type MistakeKind =
   | "endgame_conversion"
   | "tactical_blind_spot";
 
-export type PracticeStatus = "solved" | "missed" | "later";
-
-export type MaterialBalance = "ahead" | "equal" | "behind";
-export type CastleSide = "kingside" | "queenside" | null;
-
-export interface MistakeContext {
-  category: MistakeKind;
-  move_number: number;
-  game_phase: Phase;
-  material_balance: MaterialBalance;
-  eval_before: number;
-  eval_after: number;
-  moves_since_castle: number | null;
-  castle_side: CastleSide;
-  game_url: string | null;
-}
-
-export interface PatternExample {
-  game_url: string | null;
-  move: number;
-  note: string;
-}
-
-export interface RecurringPattern {
-  description: string;
-  count: number;
-  avg_eval_loss: number;
-  examples: PatternExample[];
-}
-
-export interface PatternPayload {
+export interface PlayerRef {
+  name: string;
   rating: number | null;
-  games_analyzed: number;
-  top_patterns: RecurringPattern[];
 }
 
-/** A single game pulled from Chess.com, reduced to what we need. */
+/** One game from Chess.com or Lichess, reduced to what the review needs. */
 export interface FetchedGame {
+  id: string;
+  platform: Platform;
   pgn: string;
-  timeClass: string;
-  /** PGN-compliant time control string from Chess.com, e.g. "600+5". */
-  timeControl: string;
-  /** Rating of the player we're analyzing, in this game. */
-  playerRating: number | null;
-  /** Which side the analyzed player was. */
-  playerIsWhite: boolean;
-  endTime: number;
   url: string | null;
+  timeClass: string;
+  /** "600+5" style, seconds + increment. */
+  timeControl: string;
+  white: PlayerRef;
+  black: PlayerRef;
+  playerColor: Color;
+  outcome: Outcome;
+  /** Plain words for how it ended, e.g. "resignation". */
+  ending: string | null;
+  opening: string | null;
+  /** Unix seconds. */
+  endTime: number;
 }
 
 export interface FetchResult {
   games: FetchedGame[];
-  /** Player's rating from the most recent game (null if unknown). */
   rating: number | null;
   username: string;
 }
 
-/** A single flagged blunder — every one is reviewable on the board. */
-export interface BlunderExample {
-  phase: Phase;
-  /** SAN of the move the player actually played. */
-  move: string;
-  /** FEN before the move (the position the player was looking at). */
-  fen: string;
-  /** FEN after the played move. */
-  fenAfter: string;
-  /** Eval swing in centipawns (how much the move cost, mover's perspective). */
-  swingCp: number;
-  /** True if the move hung material to the opponent's immediate next capture. */
+/** Why a mistake happened, for the player's own mistakes and blunders. */
+export interface MoveFlag {
+  kind: MistakeKind;
+  tags: MistakeKind[];
   isHang: boolean;
-  /** Net material lost in pawns (0 if not a hang). */
   materialLost: number;
-  /** Primary, data-derived mistake bucket used for diagnosis and filters. */
-  mistakeKind: MistakeKind;
-  /** Secondary data-derived buckets for this same move. */
-  mistakeTags: MistakeKind[];
-  /** Engine's best move (UCI) in this position, or null. */
-  bestMoveUci: string | null;
-  /** Eval after the best move, player's perspective (centipawns). */
-  bestCp: number;
-  /** Remaining clock after this move, when Chess.com PGN has [%clk]. */
-  clockAfterSec: number | null;
-  /** Approximate time spent on this move, derived from clock comments. */
-  timeSpentSec: number | null;
-  timeClass: string;
-  gameIndex: number;
-  moveNumber: number;
-  context: MistakeContext;
+  materialBalance: MaterialBalance;
+  castleSide: CastleSide;
+  movesSinceCastle: number | null;
 }
 
-/** Kept as an alias for the coaching payload (a blunder that hung material). */
-export type HangExample = BlunderExample;
+export interface ReviewMove {
+  ply: number;
+  moveNumber: number;
+  color: Color;
+  san: string;
+  from: string;
+  to: string;
+  promotion?: string;
+  /** FEN after the move. */
+  fen: string;
+  /** White's win chance after the move, 0 to 100. */
+  whiteWin: number;
+  /** Engine score after the move, White's side. Null when `mate` is set. */
+  cp: number | null;
+  mate: number | null;
+  bestUci: string | null;
+  bestSan: string | null;
+  /** The engine's line from the position before the move, in SAN. */
+  line: string[];
+  /** Win chance the mover gave away, in percentage points. */
+  drop: number;
+  accuracy: number;
+  judgement: Judgement | null;
+  isBest: boolean;
+  phase: Phase;
+  clockAfterSec: number | null;
+  timeSpentSec: number | null;
+  flag: MoveFlag | null;
+}
 
-/** The aggregate weakness profile. */
+export interface GameReview {
+  id: string;
+  platform: Platform;
+  url: string | null;
+  white: PlayerRef;
+  black: PlayerRef;
+  playerColor: Color;
+  outcome: Outcome;
+  ending: string | null;
+  opening: string | null;
+  timeClass: string;
+  timeControl: string;
+  endTime: number;
+  startFen: string;
+  /** White's win chance before the first move. */
+  startWhiteWin: number;
+  moves: ReviewMove[];
+  accuracy: Record<Color, number>;
+  counts: Record<Color, Record<Judgement, number>>;
+  /** Plies of the player's costliest moves, in game order, at most three. */
+  moments: number[];
+  depth: number;
+}
+
+/** A player's mistake or blunder, lifted out of its game for drills and patterns. */
+export interface Flagged {
+  id: string;
+  gameId: string;
+  ply: number;
+  judgement: Judgement;
+  phase: Phase;
+  color: Color;
+  move: string;
+  moveNumber: number;
+  /** FEN the player was looking at. */
+  fen: string;
+  fenAfter: string;
+  /** Chances for the player, 0 to 100. */
+  winBefore: number;
+  winAfter: number;
+  drop: number;
+  bestUci: string | null;
+  bestSan: string | null;
+  line: string[];
+  clockAfterSec: number | null;
+  timeSpentSec: number | null;
+  timeClass: string;
+  flag: MoveFlag;
+}
+
 export interface Profile {
   rating: number | null;
   gamesAnalyzed: number;
-  blundersByPhase: Record<Phase, number>;
   mistakesByKind: Record<MistakeKind, number>;
-  hangingPieces: number;
-  /** Every flagged blunder, newest game first — the review list. */
-  blunders: BlunderExample[];
-  /** Worst hang per phase (largest material loss) — used for the coaching payload. */
-  worstHangs: HangExample[];
-  /** Total blunders across all phases. */
-  totalBlunders: number;
+  flaggedByPhase: Record<Phase, number>;
+  /** Mistakes and blunders, worst first. */
+  flagged: Flagged[];
+  blunders: number;
+  mistakes: number;
+  inaccuracies: number;
+  accuracy: number;
+  record: Record<Outcome, number>;
 }
 
-export interface ProgressState {
-  status: "idle" | "fetching" | "analyzing" | "coaching" | "done" | "error";
-  current: number;
-  total: number;
-  message: string;
-  partial: boolean;
+/** A mistake kind that clusters in one context. */
+export interface PlayerPattern {
+  description: string;
+  count: number;
+  /** Average win chance lost, in percentage points. */
+  avgDrop: number;
+}
+
+export interface LinkedPlayer {
+  platform: Platform;
+  username: string;
+  rating: number | null;
+}
+
+export interface Report {
+  player: LinkedPlayer;
+  filter: GameFilter;
+  reviews: GameReview[];
+  /** The coach's read across all games. Null until written or if unavailable. */
+  coaching: string | null;
+  /** The coach's notes on single moves, by game id then ply. */
+  notes: Record<string, Record<number, string>>;
+  isSample: boolean;
+  complete: boolean;
+  createdAt: number;
+}
+
+export interface LiveTrace {
+  gameId: string;
+  /** White's win chance before each ply so far. */
+  whiteWins: number[];
+  plies: number;
+}
+
+export type RunStatus = "idle" | "fetching" | "reading" | "coaching" | "done" | "error";
+
+export interface RunState {
+  status: RunStatus;
+  games: FetchedGame[];
+  done: number;
+  live: LiveTrace | null;
+  error: string | null;
 }
