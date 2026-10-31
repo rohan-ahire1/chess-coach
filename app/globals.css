@@ -1,6 +1,5 @@
 :root {
   --salmon: #f4b8a8;
-  --salmon-deep: #f2a58f;
   --grid: 226 102 76;
   --paper: #fbe9e3;
   --paper-lift: #fdf3ee;
@@ -8,13 +7,13 @@
   --ink-2: oklch(38% 0.02 30);
   --rule: oklch(21% 0.01 40 / 0.22);
   --red: oklch(52% 0.2 28);
+  --red-on-salmon: oklch(46% 0.18 28);
   --blue: oklch(42% 0.17 262);
   --marker: #ffe033;
   --board-light: #fdf3ee;
   --board-dark: #d9796a;
   --gutter: 32px;
   --topbar: 56px;
-  --box: 8px;
   --sans: var(--font-archivo), "Arial Narrow", Arial, sans-serif;
   --hand: var(--font-hand), "Bradley Hand", cursive;
   --pen: cubic-bezier(0.16, 1, 0.3, 1);
@@ -287,7 +286,7 @@ button {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--blue);
+  background: var(--ink-2);
 }
 
 .btn:disabled,
@@ -368,7 +367,7 @@ button {
 
 .link-options select {
   appearance: none;
-  padding: 0 20px 2px 0;
+  padding: 0 16px 2px 0;
   border: 0;
   border-bottom: 1px solid var(--ink);
   border-radius: 0;
@@ -578,21 +577,6 @@ button {
   fill: var(--blue);
 }
 
-.b-arrow-played path,
-.b-arrow-threat path {
-  stroke: var(--red);
-}
-
-.b-arrow-played polygon,
-.b-arrow-threat polygon {
-  fill: var(--red);
-}
-
-.b-arrow-threat path {
-  stroke-dasharray: 0.07 0.05;
-  animation: none;
-}
-
 .b-arrow-user path {
   stroke: var(--ink);
 }
@@ -692,6 +676,10 @@ button {
 
 .strip-event.is-blunder {
   color: var(--red);
+}
+
+.chart-paper .strip-event.is-blunder {
+  color: var(--red-on-salmon);
 }
 
 .strip-readout {
@@ -1076,7 +1064,7 @@ i.is-blunder {
 .grow-counts {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   font-size: 14px;
 }
 
@@ -1256,8 +1244,8 @@ i.is-blunder {
 }
 
 .play-cta .btn:hover {
-  background: var(--marker);
-  border-color: var(--marker);
+  background: var(--paper);
+  border-color: var(--paper);
   color: var(--ink);
 }
 
@@ -1286,6 +1274,10 @@ i.is-blunder {
 .footer small {
   margin-left: 4px;
   opacity: 0.75;
+}
+
+.footer .mark-fall {
+  stroke: var(--salmon);
 }
 
 /* Report */
@@ -1660,10 +1652,6 @@ i.is-blunder {
   align-content: start;
   min-width: 0;
   max-width: 640px;
-}
-
-.drill-panel .print-line {
-  padding: 0;
 }
 
 .drill-panel h1,
@@ -2107,7 +2095,7 @@ i.is-blunder {
   }
 
   .options {
-    gap: 0 12px;
+    gap: 0 8px;
   }
 
   .options button span {

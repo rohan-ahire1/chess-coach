@@ -165,14 +165,12 @@ function Drill({ report, queue, startId }: { report: Report; queue: Flagged[]; s
       </div>
 
       <section className="drill-panel">
-        <p className="print-line">
+        <h1>{stage === "solved" ? "Solved." : `${side} to move. Find it.`}</h1>
+        <p className="machine">
           <span>
             Position {position} of {queue.length}
           </span>
           <span>{solvedCount} solved</span>
-        </p>
-        <h1>{stage === "solved" ? "Solved." : `${side} to move. Find it.`}</h1>
-        <p className="machine">
           <span>Move {flagged.moveNumber}</span>
           {opponent && <span>Against {opponent}</span>}
           <span>Your chances {Math.round(flagged.winBefore)}%</span>

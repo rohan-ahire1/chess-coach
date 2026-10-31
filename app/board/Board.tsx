@@ -4,7 +4,7 @@ import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Color } from "@/lib/types";
 
-export type ArrowKind = "best" | "played" | "threat" | "user";
+export type ArrowKind = "best" | "user";
 export type BadgeTone = "blunder" | "mistake" | "inaccuracy";
 
 export interface BoardArrow {
