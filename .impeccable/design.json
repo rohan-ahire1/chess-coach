@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T00:00:00.000Z",
+  "title": "Design System: Coachmate",
+  "extensions": {
+    "colorMeta": {
+      "salmon": {
+        "role": "primary",
+        "displayName": "Chart Salmon",
+        "canonical": "#f4b8a8",
+        "tonalRamp": [
+          "#1d0200",
+          "#421409",
+          "#633226",
+          "#865244",
+          "#aa7364",
+          "#cf9586",
+          "#f5b9a9",
+          "#fee9e4"
+        ]
+      },
+      "grid": {
+        "role": "primary",
+        "displayName": "Chart Grid Red",
+        "canonical": "rgb(226 102 76)",
+        "tonalRamp": [
+          "#1d0100",
+          "#490900",
+          "#7b1600",
+          "#a93118",
+          "#d0563d",
+          "#f97a5f",
+          "#feb4a3",
+          "#fee9e4"
+        ]
+      },
+      "blue": {
+        "role": "secondary",
+        "displayName": "Ballpoint Blue",
+        "canonical": "oklch(42% 0.17 262)",
+        "tonalRamp": [
+          "#000729",
+          "#001d5f",
+          "#03369a",
+          "#265ac0",
+          "#477de7",
+          "#72a3ff",
+          "#adcafe",
+          "#e7effe"
+        ]
+      },
+      "marker": {
+        "role": "tertiary",
+        "displayName": "Highlighter Yellow",
+        "canonical": "#ffe033",
+        "tonalRamp": [
+          "#0f0b00",
+          "#2c2501",
+          "#4d4201",
+          "#716100",
+          "#968207",
+          "#bea508",
+          "#e7c908",
+          "#fff0a6"
+        ]
+      },
+      "red": {
+        "role": "tertiary",
+        "displayName": "Signal Red",
+        "canonical": "oklch(52% 0.2 28)",
+        "tonalRamp": [
+          "#1f0000",
+          "#4d0002",
+          "#800105",
+          "#b8030d",
+          "#e13f36",
+          "#fe7466",
+          "#ffb3a9",
+          "#fee9e6"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Thermal Black",
+        "canonical": "oklch(21% 0.01 40)",
+        "tonalRamp": [
+          "#0f0a08",
+          "#2a2321",
+          "#47403e",
+          "#675f5d",
+          "#88807e",
+          "#aba3a0",
+          "#cfc7c4",
+          "#f5ece9"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Faded Thermal",
+        "canonical": "oklch(38% 0.02 30)",
+        "tonalRamp": [
+          "#130807",
+          "#2e221f",
+          "#4c3e3c",
+          "#6c5d5b",
+          "#8e7e7b",
+          "#b1a19e",
+          "#d6c5c1",
+          "#fceae7"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(21% 0.01 40 / 0.22)",
+        "tonalRamp": [
+          "#0f0a08",
+          "#2a2321",
+          "#47403e",
+          "#675f5d",
+          "#88807e",
+          "#aba3a0",
+          "#cfc7c4",
+          "#f5ece9"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Operate Pink",
+        "canonical": "#fbe9e3",
+        "tonalRamp": [
+          "#130805",
+          "#2e221d",
+          "#4c3e3a",
+          "#6d5d58",
+          "#8e7e79",
+          "#b2a19b",
+          "#d6c5bf",
+          "#fceae4"
+        ]
+      },
+      "paper-lift": {
+        "role": "neutral",
+        "displayName": "Lifted Paper",
+        "canonical": "#fdf3ee",
+        "tonalRamp": [
+          "#100a07",
+          "#2a2320",
+          "#48403c",
+          "#685f5b",
+          "#89807c",
+          "#aca39e",
+          "#d0c7c2",
+          "#f6ece7"
+        ]
+      },
+      "board-light": {
+        "role": "neutral",
+        "displayName": "Board Paper",
+        "canonical": "#fdf3ee",
+        "tonalRamp": [
+          "#100a07",
+          "#2a2320",
+          "#48403c",
+          "#685f5b",
+          "#89807c",
+          "#aca39e",
+          "#d0c7c2",
+          "#f6ece7"
+        ]
+      },
+      "board-dark": {
+        "role": "neutral",
+        "displayName": "Board Brick",
+        "canonical": "#d9796a",
+        "tonalRamp": [
+          "#1f0000",
+          "#4d0100",
+          "#761f15",
+          "#9b4135",
+          "#c16355",
+          "#e88677",
+          "#ffb3a6",
+          "#ffe9e5"
+        ]
+      },
+      "board-coord": {
+        "role": "neutral",
+        "displayName": "Board Coordinate",
+        "canonical": "#b24e3b",
+        "tonalRamp": [
+          "#1e0100",
+          "#4a0700",
+          "#7a1806",
+          "#9f3d2b",
+          "#c6604c",
+          "#ed836d",
+          "#ffb4a4",
+          "#ffe9e4"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The landing headline only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Landing section headings."
+      },
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "Method and empty states."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Drill, play and setup headings, and the habit section."
+      },
+      "move": {
+        "displayName": "Move",
+        "purpose": "The current move in the review note."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Results, accuracy and bot level numbers."
+      },
+      "coach-read": {
+        "displayName": "Coach read",
+        "purpose": "The coach's read on the report, in blue."
+      },
+      "coach-note": {
+        "displayName": "Coach note",
+        "purpose": "Move notes and feedback, in blue."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text, with tabular figures."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Button labels."
+      },
+      "machine": {
+        "displayName": "Machine",
+        "purpose": "Engine readouts and print lines."
+      },
+      "ruler": {
+        "displayName": "Ruler",
+        "purpose": "Move numbers under a strip."
+      },
+      "hand": {
+        "displayName": "Hand",
+        "purpose": "Short margin notes, always blue."
+      }
+    },
+    "shadows": [
+      {
+        "name": "inset-rule",
+        "value": "inset 0 1px 0 var(--ink), inset 0 -1px 0 var(--ink)",
+        "purpose": "Top and bottom edges of a strip plot, drawn over the grid. Zero blur."
+      },
+      {
+        "name": "inset-outline",
+        "value": "inset 0 0 0 1px var(--ink)",
+        "purpose": "Promotion buttons. Zero blur."
+      }
+    ],
+    "motion": [
+      {
+        "name": "pen",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Piece glide, 120 to 260ms scaled by distance."
+      },
+      {
+        "name": "piece-quick",
+        "value": "90ms",
+        "purpose": "Piece glide while scrubbing."
+      },
+      {
+        "name": "trace-feed",
+        "value": "360ms linear per ply",
+        "purpose": "The landing strip printing left to right at constant speed."
+      },
+      {
+        "name": "pen-draw-ring",
+        "value": "420ms ease-out",
+        "purpose": "Pen rings drawn with stroke-dashoffset."
+      },
+      {
+        "name": "pen-draw-arrow",
+        "value": "180ms ease-out",
+        "purpose": "Board arrows drawn with stroke-dashoffset."
+      },
+      {
+        "name": "capture-clear",
+        "value": "110ms linear",
+        "purpose": "A captured piece clearing."
+      },
+      {
+        "name": "control-swap",
+        "value": "80ms linear",
+        "purpose": "Button colour swaps."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "short",
+        "value": "max-height: 840px"
+      },
+      {
+        "name": "compact",
+        "value": "max-width: 1180px"
+      },
+      {
+        "name": "mobile",
+        "value": "max-width: 860px"
+      },
+      {
+        "name": "narrow",
+        "value": "max-width: 400px"
+      },
+      {
+        "name": "tiny",
+        "value": "max-width: 359px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action on a screen. Black print with paper text.",
+      "html": "<button class=\"ds-btn-primary\">Read my games</button>",
+      "css": ".ds-btn-primary { display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border:1.5px solid var(--ink);border-radius:0;font-family:var(--sans);font-size:16px;font-weight:700;white-space:nowrap;cursor:pointer;transition:background-color 80ms linear,color 80ms linear; background:var(--ink);color:var(--paper); } .ds-btn-primary:focus-visible { outline:2px solid var(--blue);outline-offset:2px; } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:disabled { opacity:0.45;cursor:not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other action. Outlined, inverts to black on hover.",
+      "html": "<button class=\"ds-btn-secondary\">Next turning point</button>",
+      "css": ".ds-btn-secondary { display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border:1.5px solid var(--ink);border-radius:0;font-family:var(--sans);font-size:16px;font-weight:700;white-space:nowrap;cursor:pointer;transition:background-color 80ms linear,color 80ms linear; background:transparent;color:var(--ink); } .ds-btn-secondary:hover { background:var(--ink);color:var(--paper); } .ds-btn-secondary:focus-visible { outline:2px solid var(--blue);outline-offset:2px; } .ds-btn-secondary:active { transform:translateY(1px); }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Quiet actions beside a button, such as skip or show the answer.",
+      "html": "<button class=\"ds-btn-text\">Show the answer</button>",
+      "css": ".ds-btn-text { padding:0;border:0;background:none;color:var(--ink);font-family:var(--sans);font-size:15px;font-weight:600;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;cursor:pointer; } .ds-btn-text:hover { text-decoration-thickness:2px; } .ds-btn-text:focus-visible { outline:2px solid var(--blue);outline-offset:2px; }"
+    },
+    {
+      "name": "Username Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Square ruled field on Lifted Paper, joined to its button.",
+      "html": "<input class=\"ds-field\" type=\"text\" placeholder=\"Your username\" aria-label=\"Username\">",
+      "css": ".ds-field { width:280px;height:48px;padding:0 16px;border:1.5px solid var(--ink);border-radius:0;background:var(--paper-lift);color:var(--ink);font-family:var(--sans);font-size:16px;caret-color:var(--blue); } .ds-field::placeholder { color:var(--ink-2);opacity:1; } .ds-field:focus-visible { outline:2px solid var(--blue);outline-offset:2px; }"
+    },
+    {
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "nav-current",
+      "description": "56px ruled bar. The current page gets a highlighter swipe.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><a href=\"#\">Review</a><a href=\"#\" aria-current=\"page\">Drill</a><a href=\"#\">Play</a><a href=\"#\">Method</a></nav>",
+      "css": ".ds-nav { display:flex;align-items:center;gap:24px;height:56px;padding:0 32px;background:var(--paper);border-bottom:1px solid var(--ink);font-family:var(--sans); } .ds-nav a { padding:0 4px;color:var(--ink);font-size:15px;font-weight:600;text-decoration:none; } .ds-nav a:hover { text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px; } .ds-nav a[aria-current='page'] { background:var(--marker); } .ds-nav a:focus-visible { outline:2px solid var(--blue);outline-offset:2px; }"
+    },
+    {
+      "name": "Strip",
+      "kind": "custom",
+      "refersTo": "strip-plot",
+      "description": "A game as one trace on a literal scale: one small box is 5% chances, height is 20 boxes.",
+      "html": "<div class=\"ds-strip\" role=\"img\" aria-label=\"Chances through a game\"><span class=\"ds-strip-mid\"></span><span class=\"ds-strip-here\"></span><svg viewBox=\"0 0 1000 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><polyline class=\"ds-strip-trace\" points=\"0,50 120,46 240,40 360,44 480,36 600,34\"/><line class=\"ds-strip-fall\" x1=\"600\" y1=\"34\" x2=\"680\" y2=\"82\"/><polyline class=\"ds-strip-trace\" points=\"680,82 800,86 1000,92\"/></svg><span class=\"ds-strip-head\"></span></div>",
+      "css": ".ds-strip { position:relative;width:480px;height:160px;background-color:var(--salmon);background-image:linear-gradient(rgb(var(--grid) / 0.42) 1px,transparent 1px),linear-gradient(90deg,rgb(var(--grid) / 0.42) 1px,transparent 1px),linear-gradient(rgb(var(--grid) / 0.2) 1px,transparent 1px),linear-gradient(90deg,rgb(var(--grid) / 0.2) 1px,transparent 1px);background-size:40px 40px,40px 40px,8px 8px,8px 8px;box-shadow:inset 0 1px 0 var(--ink),inset 0 -1px 0 var(--ink); } .ds-strip svg { position:absolute;inset:0;width:100%;height:100%;overflow:visible; } .ds-strip-mid { position:absolute;inset:50% 0 auto;height:1px;background:var(--ink);opacity:0.55; } .ds-strip-here { position:absolute;top:0;bottom:0;left:calc(64% - 8px);width:16px;background:var(--marker); } .ds-strip-head { position:absolute;top:0;bottom:0;left:64%;width:1.5px;background:var(--ink); } .ds-strip-trace, .ds-strip-fall { fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round; } .ds-strip-trace { stroke:var(--ink);stroke-width:1.75px; } .ds-strip-fall { stroke:var(--red);stroke-width:3px; }"
+    },
+    {
+      "name": "Strip Readout",
+      "kind": "custom",
+      "refersTo": "strip-readout",
+      "description": "Black printhead label above the plot, naming the move and the chances.",
+      "html": "<span class=\"ds-readout\">23. Qd2, your chances 61%</span>",
+      "css": ".ds-readout { display:inline-block;padding:0 8px;background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:13px;line-height:24px;white-space:nowrap;font-variant-numeric:tabular-nums; }"
+    },
+    {
+      "name": "Coach Note",
+      "kind": "custom",
+      "refersTo": "coach-note",
+      "description": "The coach in blue on bare paper, beside a black machine line and a short margin note.",
+      "html": "<div class=\"ds-note\"><p class=\"ds-machine\"><span>Chances 61 to 28</span><span>Eval +0.4</span></p><p class=\"ds-coach\">You took the pawn and left the knight with no way back.</p><p class=\"ds-hand\">it turned here</p></div>",
+      "css": ".ds-note { display:grid;gap:8px;max-width:62ch;font-family:var(--sans); } .ds-machine { display:flex;flex-wrap:wrap;gap:4px 16px;margin:0;color:var(--ink);font-size:14px;line-height:24px; } .ds-coach { margin:0;color:var(--blue);font-size:18px;line-height:28px; } .ds-hand { margin:0;color:var(--blue);font-family:var(--hand);font-size:32px;line-height:32px;transform:rotate(-2deg);transform-origin:left center; }"
+    },
+    {
+      "name": "Scoresheet Row",
+      "kind": "custom",
+      "refersTo": "scoresheet-current",
+      "description": "A ruled move row. The current move is highlighted yellow.",
+      "html": "<div class=\"ds-sheet\"><span class=\"ds-no\">23</span><button type=\"button\" aria-current=\"true\">Qd2</button><button type=\"button\">Rfe8</button></div>",
+      "css": ".ds-sheet { display:grid;grid-template-columns:32px 1fr 1fr;width:224px;min-height:32px;border-bottom:1px solid var(--rule);font-family:var(--sans);font-size:15px; } .ds-no { align-self:center;color:var(--ink-2);font-size:13px; } .ds-sheet button { padding:0 4px;border:0;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer; } .ds-sheet button:hover { background:var(--paper-lift); } .ds-sheet button[aria-current='true'] { background:var(--marker);font-weight:700; } .ds-sheet button:focus-visible { outline:2px solid var(--blue);outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Chart Recorder Strip",
+    "overview": "Coachmate draws every chess game as a strip of chart paper. The player's chances print from left to right as one ink line, and the reader's job is to find where that line fell. The strip is how you move through a game. The board follows it.\n\nThe material is a roll of saturated salmon paper under a kitchen light, marked up with a pen. The surface is printed and flat, with one continuous thread of data and short notes written in its margin. Density comes from showing every game at once as a labelled row. Ruled lines divide the page, so nothing needs a box around it.\n\nColour is committed. Salmon carries the landing page, and every working screen sits on a paler pink so the task leads. The system is light only, because the scene it comes from is lit paper. It must never read as a SaaS dashboard or as a copy of Chess.com's Game Review.",
+    "keyCharacteristics": [
+      "A game always appears as a strip, with a literal vertical scale.",
+      "Three inks with fixed jobs, plus signal red for the fall.",
+      "Heavy condensed Archivo headings over tabular Archivo text.",
+      "Hairline ink rules with sharp corners and no raised surfaces.",
+      "Motion that feeds paper and draws pen lines."
+    ],
+    "rules": [
+      {
+        "name": "The Three Inks Rule",
+        "body": "Thermal black is the engine, ballpoint blue is the coach and highlighter yellow is \"you are here\". A new element takes an ink by who is speaking, and a colour is never added for variety. Blue has one mechanical exception: the focus ring, the text caret and the keyboard cursor on the board are the pen in the user's hand.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fall Rule",
+        "body": "Signal red appears only on blunders and the falling trace. Errors, warnings, destructive actions and low clocks do not get red. A low clock inverts to a thermal black block.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Paler Rule",
+        "body": "The Operate ground is #fbe9e3 and must go no paler. Below that the page turns to cream and the world is gone. Lifted Paper is a fill for small parts inside a screen and never a page ground.",
+        "section": "colors"
+      },
+      {
+        "name": "The Print Figure Rule",
+        "body": "All text sets tabular figures from the body down, so numbers hold their columns and change in place.",
+        "section": "typography"
+      },
+      {
+        "name": "The Margin Note Rule",
+        "body": "The hand is for a few words written in the margin, such as \"it turned here\" or \"nice\". It is always blue and never carries instructions or sentences.",
+        "section": "typography"
+      },
+      {
+        "name": "The Box Rule",
+        "body": "Every layout measure is a multiple of 8px. Inline half steps, text leading and pen marks sit outside it.",
+        "section": "layout"
+      },
+      {
+        "name": "The Literal Scale Rule",
+        "body": "One small box on a strip equals 5% chances, and a strip plot is always 20 × `--s-box` tall. The bold line sits at 50%, and a heavier grid line falls every five boxes. Change the size only by changing `--s-box` and `--s-height` together. The shipped pairs are 8px and 160px, 6px and 120px, 5.6px and 112px, and 2.4px and 48px.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Blur is never used for depth. If an element needs separating, give it a hairline ink rule or a change of paper.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Future Rule",
+        "body": "The drill strip does not scrub. Scrubbing would show moves played after the position the player is solving. It sits at that position as a fixed mark, with a link out to the game for anyone who wants to see the rest.",
+        "section": "components"
+      },
+      {
+        "name": "The Feed And Pen Rule",
+        "body": "Paper feeds, pens draw and pieces slide. Numbers change in place and never count up, and nothing bounces or fades up on entry.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do choose an ink by who is speaking: thermal black for the engine, ballpoint blue for the coach, highlighter yellow for \"you are here\".",
+      "Do draw every game with the shared strip and keep one small box equal to 5% chances, with the plot 20 × `--s-box` tall.",
+      "Do keep every Operate surface on #fbe9e3 or deeper.",
+      "Do separate content with 1px ink rules and Hairline dividers, with layout measures in multiples of 8px.",
+      "Do show highlighter yellow behind the words or square it marks, as a flat swipe.",
+      "Do pair every quality colour with its glyph, since move quality is never carried by colour alone.",
+      "Do make state changes discrete, with numbers changing in place.",
+      "Do give every new animation a `prefers-reduced-motion` state that shows the finished result.",
+      "Do label sample data as bot games wherever it appears.",
+      "Do keep Stockfish's GPLv3 licence and credit with `public/engine/`."
+    ],
+    "donts": [
+      "Don't use cards, pills, tiles or soft shadows.",
+      "Don't add a dark theme. Black printed blocks and the closing landing band are part of the light paper world.",
+      "Don't use signal red for errors, warnings, destructive actions or decoration. It belongs to blunders and the falling trace.",
+      "Don't use yellow for hover or emphasis, or blue for general links and accents.",
+      "Don't let a drill strip scrub, because it would show moves played after the position being solved.",
+      "Don't go paler than #fbe9e3 for a page ground, and don't let it drift to cream or white.",
+      "Don't resize a strip by height alone, since that breaks the literal scale.",
+      "Don't animate figures counting up, or add bounce or fade-up entrances.",
+      "Don't put the hand in sentences, instructions or any colour but blue.",
+      "Don't invent stats, Elo ranges or speed claims to fill a print line."
+    ]
+  }
+}
