@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-10-04T17:25:34.732Z",
+        "reason": "assistant triage: pre-existing width/height transitions on the analysis progress bar and engine eval bar; single small elements, not caused by this redesign"
+      }
+    ]
+  }
+}
