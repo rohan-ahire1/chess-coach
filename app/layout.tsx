@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "./Navbar";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -57,7 +56,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#main-content">
           Skip to main content
         </a>
-        <Navbar />
         <div className="app-main" id="main-content">
           {children}
         </div>
