@@ -31,6 +31,8 @@ Reviews stay in `localStorage`, so a refresh or a stopped run keeps what's done.
 
 ## Setup
 
+Requires Node.js 18.17 or newer.
+
 ```bash
 npm install
 cp .env.example .env.local

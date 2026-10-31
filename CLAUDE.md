@@ -6,7 +6,7 @@ Coachmate is a free chess review app. A player links a Chess.com or Lichess prof
 
 ## Tech stack
 
-- Next.js 14.2.5 App Router, React 18, strict TypeScript, plain CSS in `app/globals.css`, Vercel.
+- Next.js 14.2.35 App Router, React 18, strict TypeScript, plain CSS in `app/globals.css`, Vercel.
 - chess.js 1.4 for PGN replay and legal moves. The board is our own (`app/board/Board.tsx`).
 - Stockfish 19 lite single-threaded in `public/engine/`, GPLv3, run in a Web Worker.
 - OpenRouter, default `deepseek/deepseek-v4-flash`, called only from the Edge route `app/api/coach/route.ts`.
