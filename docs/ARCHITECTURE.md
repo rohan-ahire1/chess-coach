@@ -32,7 +32,7 @@ Opening a game calls `loadNotes(id)`, which sends `gamePayload()` for that game'
 
 ## Coach route
 
-`app/api/coach/route.ts` validates the payload shape, rate limits at 12 per minute per IP, caps the body at 24 KB and returns 503 without a key. The rate limit is per edge isolate.
+`app/api/coach/route.ts` validates the payload shape, rate limits at 12 per minute per IP, caps the body at 24 KB and returns 503 without a key. The rate limit lives in the server's memory, so a restart resets it.
 
 ## Board
 

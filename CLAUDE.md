@@ -6,10 +6,10 @@ Coachmate is a free chess review app. A player links a Chess.com or Lichess prof
 
 ## Tech stack
 
-- Next.js 14.2.35 App Router, React 18, strict TypeScript, plain CSS in `app/globals.css`, Vercel.
+- Next.js 14.2.35 App Router, React 18, strict TypeScript, plain CSS in `app/globals.css`. Deployed to the VPS at coachmate.rohanahire.com, never Vercel.
 - chess.js 1.4 for PGN replay and legal moves. The board is our own (`app/board/Board.tsx`).
 - Stockfish 19 lite single-threaded in `public/engine/`, GPLv3, run in a Web Worker.
-- OpenRouter, default `deepseek/deepseek-v4-flash`, called only from the Edge route `app/api/coach/route.ts`.
+- OpenRouter, default `deepseek/deepseek-v4-flash`, called only from the route `app/api/coach/route.ts`.
 - Archivo (variable width) and Reenie Beanie through `next/font`. No test framework.
 
 ## Layout
@@ -34,9 +34,11 @@ Coachmate is a free chess review app. A player links a Chess.com or Lichess prof
 
 ## Env vars
 
+Production values live in `~/.config/coachmate/server.env` on the VPS.
+
 - `OPENROUTER_API_KEY`: server only. Without it everything else works and notes are written by rule.
 - `COACH_MODEL`: optional.
-- `NEXT_PUBLIC_SITE_URL`: optional, for OG URLs.
+- `NEXT_PUBLIC_SITE_URL`: optional, for OG URLs. The deploy script and the service set it.
 
 ## Commands
 
@@ -45,6 +47,7 @@ npm run dev
 npm run build
 npx tsc --noEmit
 npx tsx scripts/build-sample.ts
+./scripts/deploy-vps.sh
 ```
 
 ## Rules

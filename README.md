@@ -7,7 +7,7 @@ mistakes, and a bot to play against. It's free and there is no account.
 
 ## Stack
 
-- Next.js 14 (App Router) on Vercel, with TypeScript and plain CSS
+- Next.js 14 (App Router) as a standalone server on a VPS, with TypeScript and plain CSS
 - Stockfish 19 lite single-threaded, vendored in `public/engine/` and run in a Web
   Worker. It needs no `SharedArrayBuffer` or COOP/COEP headers.
 - chess.js for PGN replay and legal moves
@@ -44,11 +44,25 @@ drills and play all still work, and notes are written by rule from the board.
 
 ## Deploy
 
-Set these in Vercel:
+The live site is coachmate.rohanahire.com. `coachmate.service` on the VPS runs the
+standalone server on port 8790 behind Caddy. Push `main`, then run:
+
+```bash
+./scripts/deploy-vps.sh
+```
+
+The script builds a fresh clone of `main` in `~/projects/coachmate-releases`, checks
+it on a spare port, points `~/projects/coachmate` at it and restarts the service. If
+the build or the check fails, the live site stays as it is. To roll back, point that
+symlink at an older release and restart the service.
+
+Set these in `~/.config/coachmate/server.env` on the VPS and restart the service:
 
 - `OPENROUTER_API_KEY`, required for the coach
 - `COACH_MODEL`, optional, defaults to `deepseek/deepseek-v4-flash`
-- `NEXT_PUBLIC_SITE_URL`, optional, used for absolute social image URLs
+
+`NEXT_PUBLIC_SITE_URL` is already set by the script and the service, for absolute
+social image URLs.
 
 ## Sample data
 
@@ -74,7 +88,7 @@ no speed claims until this is done.
 
 - The hanging-piece rule reads the opponent's next move, so a sacrifice or an
   in-between move can be misnamed.
-- `/api/coach` rate limits per edge isolate. Sustained traffic needs a shared store.
+- `/api/coach` keeps its rate limit in memory, so a restart resets it.
 
 ## Credits
 
