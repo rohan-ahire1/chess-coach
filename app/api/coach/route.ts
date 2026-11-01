@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 24_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
