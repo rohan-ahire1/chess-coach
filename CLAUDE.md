@@ -10,7 +10,7 @@ Coachmate is a free chess review app. A player links a Chess.com or Lichess prof
 - chess.js 1.4 for PGN replay and legal moves. The board is our own (`app/board/Board.tsx`).
 - Stockfish 19 lite single-threaded in `public/engine/`, GPLv3, run in a Web Worker.
 - OpenRouter, default `deepseek/deepseek-v4-flash`, called only from the route `app/api/coach/route.ts`.
-- Archivo (variable width) and Reenie Beanie through `next/font`. No test framework.
+- Archivo (variable width) and Reenie Beanie through `next/font`. Vitest for tests.
 
 ## Layout
 
@@ -45,7 +45,9 @@ Production values live in `~/.config/coachmate/server.env` on the VPS.
 ```bash
 npm run dev
 npm run build
-npx tsc --noEmit
+npm run typecheck
+npm run lint
+npm test
 npx tsx scripts/build-sample.ts
 ./scripts/deploy-vps.sh
 ```
